@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(specify --version)",
+      "PowerShell(specify --help 2>&1)",
+      "PowerShell(docker compose -f \"d:/capstone project/docker/docker-compose.yml\" --profile spec run --rm spec-validator 2>&1)",
+      "PowerShell(docker compose -f \"d:/capstone project/docker/docker-compose.yml\" exec api pytest tests/test_agent_flow.py -v 2>&1)"
+    ]
+  }
+}

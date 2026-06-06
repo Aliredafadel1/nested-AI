@@ -1,0 +1,93 @@
+openapi: "3.0.3"
+info:
+  title: NestAI Roommate API — Phase 2a
+  version: "1.0"
+
+paths:
+  /roommate/matches:
+    get:
+      summary: Get top roommate matches for the authenticated student
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Ranked list of matches with 5-dimension scores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MatchOut"
+        "401":
+          description: Not authenticated
+        "403":
+          description: Only students can request matches
+        "422":
+          description: Student has not completed onboarding — no embedding exists
+
+  /roommate/requests:
+    post:
+      summary: Send a roommate request to another student
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestCreate"
+      responses:
+        "201":
+          description: Request created with status pending
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequestOut"
+        "400":
+          description: Request already exists
+        "404":
+          description: Target user not found or not a student
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    DimensionScores:
+      type: object
+      properties:
+        sleep:        {type: number, minimum: 0, maximum: 1}
+        study:        {type: number, minimum: 0, maximum: 1}
+        cleanliness:  {type: number, minimum: 0, maximum: 1}
+        guests:       {type: number, minimum: 0, maximum: 1}
+        budget:       {type: number, minimum: 0, maximum: 1}
+      required: [sleep, study, cleanliness, guests, budget]
+
+    MatchOut:
+      type: object
+      properties:
+        user_id:    {type: integer}
+        score:      {type: number, minimum: 0, maximum: 1, description: "Average of 5 dimension scores"}
+        dimensions: {$ref: "#/components/schemas/DimensionScores"}
+      required: [user_id, score, dimensions]
+
+    RequestCreate:
+      type: object
+      properties:
+        to_user_id: {type: integer}
+      required: [to_user_id]
+
+    RequestOut:
+      type: object
+      properties:
+        id:           {type: integer}
+        from_user_id: {type: integer}
+        to_user_id:   {type: integer}
+        score:        {type: number, nullable: true}
+        dimensions:   {$ref: "#/components/schemas/DimensionScores"}
+        status:       {type: string, enum: [pending, accepted, declined]}
+        created_at:   {type: string, format: date-time}
+      required: [id, from_user_id, to_user_id, status, created_at]

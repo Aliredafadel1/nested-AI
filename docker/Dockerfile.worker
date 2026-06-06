@@ -1,0 +1,5 @@
+FROM nestai-api
+
+# Install sentence-transformers with extended timeout
+# PyTorch wheels are large (~1GB) — retry aggressively
+RUN pip install --no-cache-dir --timeout=300 --retries=10 sentence-transformers==3.0.1

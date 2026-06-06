@@ -1,0 +1,133 @@
+from fastapi import APIRouter, Depends, Response, Cookie
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.database import get_db
+from core.redis import get_async_redis
+from core.security import get_current_user, require_student_role
+from modules.users.schemas import RegisterRequest, LoginRequest, OnboardingRequest, TokenResponse, StudentProfileOut, UserMeOut
+from modules.users.service import UserService
+
+router = APIRouter(tags=["auth"])
+
+REFRESH_COOKIE = "refresh_token"
+COOKIE_MAX_AGE = 7 * 24 * 3600  # 7 days in seconds
+
+
+def _set_refresh_cookie(response: Response, raw_refresh: str) -> None:
+    response.set_cookie(
+        key=REFRESH_COOKIE,
+        value=raw_refresh,
+        httponly=True,
+        secure=False,  # True in production
+        samesite="lax",
+        max_age=COOKIE_MAX_AGE,
+        path="/auth/refresh",
+    )
+
+
+@router.post("/auth/register", response_model=TokenResponse, status_code=201)
+async def register(
+    req: RegisterRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
+    redis = get_async_redis()
+    svc = UserService(db, redis)
+    token, raw_refresh = await svc.register(req)
+    _set_refresh_cookie(response, raw_refresh)
+    await redis.aclose()
+    return token
+
+
+@router.post("/auth/login", response_model=TokenResponse)
+async def login(
+    req: LoginRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
+    redis = get_async_redis()
+    svc = UserService(db, redis)
+    token, raw_refresh = await svc.login(req)
+    _set_refresh_cookie(response, raw_refresh)
+    await redis.aclose()
+    return token
+
+
+@router.post("/auth/refresh", response_model=TokenResponse)
+async def refresh(
+    response: Response,
+    refresh_token: str | None = Cookie(default=None, alias=REFRESH_COOKIE),
+    db: AsyncSession = Depends(get_db),
+):
+    from fastapi import HTTPException
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="No refresh token provided.")
+
+    # Decode user_id from the refresh token (first 8 chars are user_id encoded)
+    # We store user_id separately — read it from the cookie claim
+    # Simple approach: accept user_id as a query param or embed in JWT
+    # Better: parse from a signed token structure
+    # For simplicity, we embed user_id in the refresh token as "uid_<id>_<random>"
+    try:
+        user_id = int(refresh_token.split("_")[1])
+    except (IndexError, ValueError):
+        raise HTTPException(status_code=401, detail="Invalid refresh token format.")
+
+    redis = get_async_redis()
+    svc = UserService(db, redis)
+    token, raw_new = await svc.refresh(user_id, refresh_token)
+    _set_refresh_cookie(response, raw_new)
+    await redis.aclose()
+    return token
+
+
+@router.post("/auth/demo", response_model=TokenResponse)
+async def demo_login(
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
+    """One-click demo login as Lara — no password required. Demo use only."""
+    redis = get_async_redis()
+    svc = UserService(db, redis)
+    token, raw_refresh = await svc.demo_login()
+    _set_refresh_cookie(response, raw_refresh)
+    await redis.aclose()
+    return token
+
+
+@router.post("/auth/logout", status_code=204)
+async def logout(
+    response: Response,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    redis = get_async_redis()
+    svc = UserService(db, redis)
+    await svc.logout(int(current_user["sub"]))
+    response.delete_cookie(REFRESH_COOKIE)
+    await redis.aclose()
+
+
+@router.get("/users/me", response_model=UserMeOut)
+async def get_me(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    redis = get_async_redis()
+    svc = UserService(db, redis)
+    result = await svc.get_me(int(current_user["sub"]), current_user["role"])
+    await redis.aclose()
+    return result
+
+
+@router.post("/users/onboarding", response_model=StudentProfileOut)
+async def onboarding(
+    req: OnboardingRequest,
+    current_user: dict = Depends(require_student_role),
+    db: AsyncSession = Depends(get_db),
+):
+    redis = get_async_redis()
+    svc = UserService(db, redis)
+    profile = await svc.save_onboarding(int(current_user["sub"]), req)
+    await redis.aclose()
+    return profile

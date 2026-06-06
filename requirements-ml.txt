@@ -1,0 +1,4 @@
+# ML dependencies for Celery worker-low only
+# sentence-transformers pulls PyTorch (~1GB) — install separately
+-r requirements.txt
+sentence-transformers==3.0.1

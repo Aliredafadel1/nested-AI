@@ -1,0 +1,277 @@
+version: "1.0"
+project: nestai
+
+modules:
+
+  users:
+    description: Authentication, user profiles, onboarding
+    tables:
+      - users
+      - student_profiles
+      - landlord_profiles
+    endpoints:
+      - method: POST
+        path: /auth/register
+        auth: none
+        request: {email: string, password: string, role: "student|landlord"}
+        response: {access_token: string, token_type: string, role: string}
+        status: 201
+      - method: POST
+        path: /auth/login
+        auth: none
+        request: {email: string, password: string}
+        response: {access_token: string, token_type: string, role: string}
+        status: 200
+      - method: POST
+        path: /auth/refresh
+        auth: cookie(refresh_token)
+        response: {access_token: string, token_type: string, role: string}
+        status: 200
+      - method: POST
+        path: /auth/logout
+        auth: bearer
+        status: 204
+      - method: POST
+        path: /users/onboarding
+        auth: bearer(student)
+        request: {university_id: int, budget_min: int, budget_max: int, sleep_schedule: string, study_habits: string, cleanliness: string, guests: string, language: string, priorities: array}
+        response: StudentProfile
+        status: 200
+      - method: GET
+        path: /users/me
+        auth: bearer
+        response: {id: int, email: string, role: string, profile: "StudentProfileOut | LandlordProfileOut | null"}
+        status: 200
+        note: used by frontend to check onboarding completion (university_id non-null = complete)
+    invariants:
+      - JWT access tokens stored in React memory only (never localStorage)
+      - Refresh tokens are HttpOnly cookies, hashed in Redis
+      - Passwords use bcrypt work factor 12
+      - Refresh token rotation on every use
+
+  housing:
+    description: Listings CRUD, photo uploads, saved listings
+    tables:
+      - listings
+      - listing_photos
+      - listing_verifications
+      - saved_listings
+      - universities
+    endpoints:
+      - method: GET
+        path: /listings
+        auth: optional
+        query_params: [neighbourhood, neighbourhood_id, min_price, max_price, bedrooms, skip, limit]
+        response: list[Listing]
+        status: 200
+      - method: POST
+        path: /listings
+        auth: bearer(landlord)
+        request: {neighbourhood_id: int, title: string, price: int, bedrooms: int}
+        response: Listing
+        status: 201
+      - method: GET
+        path: /listings/{id}
+        auth: optional
+        response: Listing
+        status: 200
+      - method: PUT
+        path: /listings/{id}
+        auth: bearer(landlord, own)
+        request: ListingUpdate
+        response: Listing
+        status: 200
+      - method: DELETE
+        path: /listings/{id}
+        auth: bearer(landlord, own)
+        status: 204
+        note: soft delete only — sets status=inactive
+      - method: POST
+        path: /listings/{id}/photos
+        auth: bearer(landlord, own)
+        request: multipart/form-data file
+        response: {url: string}
+        status: 201
+      - method: GET
+        path: /listings/saved
+        auth: bearer(student)
+        response: list[Listing]
+        status: 200
+      - method: POST
+        path: /listings/{id}/save
+        auth: bearer(student)
+        status: 204
+      - method: DELETE
+        path: /listings/{id}/save
+        auth: bearer(student)
+        status: 204
+      - method: GET
+        path: /listings/{id}/stats
+        auth: bearer(landlord, own)
+        response: {listing_id: int, saved_count: int}
+        status: 200
+        note: landlord dashboard inquiry count — count of saved_listings rows
+    invariants:
+      - File uploads validate magic bytes before MinIO write
+      - DELETE is soft-delete only (status=inactive)
+      - Landlords may only edit/delete their own listings
+
+  roommate:
+    description: Compatibility matching with 5-dimension BGE-M3 sub-embeddings
+    tables:
+      - roommate_requests
+    endpoints:
+      - method: GET
+        path: /roommate/matches
+        auth: bearer(student)
+        response: list[MatchOut]
+        status: 200
+        note: returns 422 if caller has no embedding yet
+      - method: POST
+        path: /roommate/requests
+        auth: bearer(student)
+        request: {to_user_id: int}
+        response: RequestOut
+        status: 201
+    invariants:
+      - Dimension scores computed via pgvector cosine similarity, not Python
+      - Returns 422 with actionable message if caller profile has no embedding
+
+  agent:
+    description: LangGraph AI agent — 6-node graph, 9 MCP tools, SSE streaming
+    tables:
+      - agent_sessions
+      - student_memory
+      - rag_chunks
+    endpoints:
+      - method: POST
+        path: /agent/chat
+        auth: bearer(student)
+        request: {query: string, session_id: "string | null"}
+        response: "StreamingResponse (text/event-stream)"
+        status: 200
+        note: token-level SSE stream; final event is data:[DONE]
+      - method: POST
+        path: /agent/transcribe
+        auth: bearer(student)
+        request: multipart/form-data audio (max 25MB, .webm/.mp4/.wav/.m4a)
+        response: {text: string}
+        status: 200
+        errors: [400, 413]
+    invariants:
+      - LangGraph graph has exactly 6 nodes (parse_intent, search_and_rank, validate_results, compare, validate_comparison, explain_and_respond)
+      - Session state in Redis (2h TTL) during conversation; PostgreSQL written once at end
+      - All LLM inputs pass through core/security.py prompt injection sanitizer
+      - validate_comparison verifies every cited listing_id exists in DB
+
+  fraud:
+    description: Scam detection — price z-score, phone dedup, photo phash
+    tables:
+      - fraud_reports
+    endpoints:
+      - method: GET
+        path: /fraud/{listing_id}
+        auth: optional
+        response: {listing_id: int, score: float, price_zscore: "float | null", evidence: {price_flags: list, phone_flags: list, photo_flags: list, text_flags: list}, computed_at: datetime}
+        status: 200
+        errors: [404]
+        note: cached in Redis fraud:{listing_id} Hash 12h TTL
+    invariants:
+      - score = 0.5*price_component + 0.3*phone_component + 0.2*photo_component
+      - text_flags (classify_fraud_text GPT-4o mini) are qualitative evidence only; do not affect numeric score
+      - run_fraud_check Celery task triggered by housing.service after every create_listing
+
+  contracts:
+    description: PDF lease analyzer — PyMuPDF + OCR fallback + Claude Sonnet risk analysis
+    tables:
+      - contracts
+    endpoints:
+      - method: POST
+        path: /contracts/analyze
+        auth: bearer(student)
+        request: multipart/form-data PDF (max 10MB)
+        response: {contract_id: int, status: "pending"}
+        status: 202
+        errors: [400, 401]
+        note: 400 if >10MB, not PDF magic bytes, or password-protected
+      - method: GET
+        path: /contracts/{id}
+        auth: bearer(student, own)
+        response: {id: int, ocr_used: bool, status: "pending|ocr_running|analyzing|complete|failed", analysis: "object | null", created_at: datetime}
+        status: 200
+        errors: [401, 403, 404]
+    invariants:
+      - Magic bytes validated before MinIO write
+      - PyMuPDF attempted first; GPT-4o Vision OCR only if PyMuPDF returns empty text
+      - "risk_items schema always {level: high|medium|low, clause_text: string, explanation: string}"
+
+  area_intel:
+    description: Neighbourhood intelligence — electricity, generator, scores
+    tables:
+      - neighborhoods
+    endpoints:
+      - method: GET
+        path: /areas/{name}
+        auth: optional
+        response: {id: int, name: string, name_ar: "string | null", electricity_hours: float, generator_cost: int, internet: int, transport: int, safety: int, student_vibe: int}
+        status: 200
+        errors: [404]
+        note: cached in Redis area:{neighbourhood_id} Hash 24h TTL
+      - method: POST
+        path: /areas/compare
+        auth: optional
+        request: {area_a: string, area_b: string}
+        response: {area_a: NeighborhoodOut, area_b: NeighborhoodOut}
+        status: 200
+        errors: [404]
+    invariants:
+      - area_intel.repository is the only code that writes to neighborhoods table
+
+  estimator:
+    description: Monthly total cost estimator including generator and commute
+    tables:
+      - cost_estimates
+    endpoints:
+      - method: POST
+        path: /estimator/calculate
+        auth: bearer(student)
+        request: {rent: int, neighbourhood_id: int, university_id: "int | null"}
+        response: {rent: int, generator: int, water: int, internet: int, transport: int, total_monthly: int, commute_minutes: "int | null"}
+        status: 200
+        errors: [400, 401]
+        note: commute_minutes null if OSRM unavailable; result saved to cost_estimates
+    invariants:
+      - water fixed at 15 USD; internet fixed at 30 USD
+      - OSRM failure returns commute_minutes null with graceful note; never a 500
+
+  notifications:
+    description: SSE real-time notifications via Redis pub/sub
+    tables:
+      - notifications
+    endpoints:
+      - method: GET
+        path: /notifications/stream
+        auth: bearer(student)
+        response: "text/event-stream"
+        status: 200
+        note: on connect delivers all unread DB notifications; then streams Redis pub/sub sse:{user_id}
+      - method: GET
+        path: /notifications
+        auth: bearer(student)
+        response: "list[{id: int, type: string, payload: object, read: bool, created_at: datetime}]"
+        status: 200
+      - method: POST
+        path: /notifications/{id}/read
+        auth: bearer(student, own)
+        status: 204
+        errors: [403, 404]
+    invariants:
+      - No WebSocket imports anywhere in the codebase
+      - SSE backed exclusively by Redis pub/sub (no polling)
+
+  reputation:
+    description: Landlord reviews — implemented in Phase 3
+    tables:
+      - landlord_reviews
+    endpoints: []
+    status: pending_phase_3

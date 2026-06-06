@@ -1,0 +1,6 @@
+FROM nestai-api
+
+COPY requirements-worker.txt .
+RUN pip install --no-cache-dir -r requirements-worker.txt
+
+ENV PYTHONPATH=/app

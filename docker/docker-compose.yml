@@ -1,0 +1,191 @@
+x-api-env: &api-env
+  env_file: ../.env
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: nestai-api
+    ports:
+      - "8000:8000"
+    environment:
+      <<: *api-env
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ..:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    image: nestai-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: nestai
+      POSTGRES_PASSWORD: nestai
+      POSTGRES_DB: nestai
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../migrations:/migrations
+      - ../seed:/seed
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nestai"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - miniodata:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  sftp:
+    image: atmoz/sftp
+    ports:
+      - "2222:22"
+    volumes:
+      - sftpdata:/home/nestai-admin/uploads
+    command: nestai-admin::1001
+    restart: unless-stopped
+
+  worker-high:
+    image: nestai-api
+    environment:
+      <<: *api-env
+    command: celery -A core.celery_config.celery_app worker -Q nestai:high -c 4 --loglevel=info
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  worker-medium:
+    image: nestai-api
+    environment:
+      <<: *api-env
+    command: celery -A core.celery_config.celery_app worker -Q nestai:medium -c 2 --loglevel=info
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  worker-low:
+    image: nestai-api
+    environment:
+      <<: *api-env
+    command: celery -A core.celery_config.celery_app worker -Q nestai:low -c 1 --loglevel=info --max-memory-per-child=1000000
+    volumes:
+      - bge_model_cache:/root/.cache/huggingface
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  worker-beat:
+    image: nestai-api
+    environment:
+      <<: *api-env
+    command: celery -A core.celery_config.celery_app beat --loglevel=info
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  minio-init:
+    image: minio/mc
+    environment:
+      <<: *api-env
+    entrypoint: >
+      /bin/sh -c "
+      sleep 5;
+      mc alias set nestai http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD;
+      mc mb -p nestai/listing-photos;
+      mc mb -p nestai/contracts;
+      mc mb -p nestai/audio;
+      mc mb -p nestai/avatars;
+      mc mb -p nestai/sftp-uploads;
+      mc anonymous set download nestai/listing-photos;
+      mc anonymous set download nestai/avatars;
+      exit 0;
+      "
+    depends_on:
+      minio:
+        condition: service_healthy
+    profiles:
+      - init
+
+  flower:
+    image: mher/flower
+    environment:
+      <<: *api-env
+    command: celery --broker=${REDIS_URL} flower --port=5555
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+    profiles:
+      - monitoring
+
+  spec-validator:
+    image: nestai-spec
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.spec
+    volumes:
+      - ../specs:/specs
+    profiles:
+      - spec
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
+  sftpdata:
+  bge_model_cache:   # BGE-M3 weights persisted across container restarts

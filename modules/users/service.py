@@ -1,0 +1,117 @@
+from datetime import timedelta
+
+from fastapi import HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+import redis.asyncio as aioredis
+
+from core.security import hash_password, verify_password, create_access_token, create_refresh_token, hash_refresh_token
+from core.config import settings
+from core.redis import RedisKeys
+from modules.users.repository import UserRepository
+from modules.users.schemas import RegisterRequest, LoginRequest, OnboardingRequest, TokenResponse  # noqa: F401
+
+
+class UserService:
+    def __init__(self, db: AsyncSession, redis: aioredis.Redis):
+        self._repo = UserRepository(db)
+        self._redis = redis
+
+    async def register(self, req: RegisterRequest) -> TokenResponse:
+        existing = await self._repo.get_by_email(req.email)
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already registered.")
+
+        user = await self._repo.create(
+            email=req.email,
+            password_hash=hash_password(req.password),
+            role=req.role,
+        )
+        if req.role == "landlord":
+            await self._repo.create_landlord_profile(user.id)
+
+        access_token = create_access_token(user.id, user.role)
+        raw_refresh, hashed_refresh = create_refresh_token(user.id)
+        await self._redis.setex(
+            RedisKeys.refresh(user.id),
+            int(timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS).total_seconds()),
+            hashed_refresh,
+        )
+        return TokenResponse(access_token=access_token, role=user.role), raw_refresh
+
+    async def login(self, req: LoginRequest):
+        user = await self._repo.get_by_email(req.email)
+        if not user or not verify_password(req.password, user.password_hash):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials.")
+
+        access_token = create_access_token(user.id, user.role)
+        raw_refresh, hashed_refresh = create_refresh_token(user.id)
+        await self._redis.setex(
+            RedisKeys.refresh(user.id),
+            int(timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS).total_seconds()),
+            hashed_refresh,
+        )
+        return TokenResponse(access_token=access_token, role=user.role), raw_refresh
+
+    async def refresh(self, user_id: int, raw_refresh: str) -> TokenResponse:
+        stored_hash = await self._redis.get(RedisKeys.refresh(user_id))
+        if not stored_hash or stored_hash != hash_refresh_token(raw_refresh):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token.")
+
+        user = await self._repo.get_by_id(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found.")
+
+        # Rotate: issue new, delete old
+        await self._redis.delete(RedisKeys.refresh(user_id))
+        access_token = create_access_token(user.id, user.role)
+        raw_new, hashed_new = create_refresh_token(user.id)
+        await self._redis.setex(
+            RedisKeys.refresh(user.id),
+            int(timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS).total_seconds()),
+            hashed_new,
+        )
+        return TokenResponse(access_token=access_token, role=user.role), raw_new
+
+    async def logout(self, user_id: int) -> None:
+        await self._redis.delete(RedisKeys.refresh(user_id))
+
+    async def demo_login(self):
+        from fastapi import HTTPException
+        user = await self._repo.get_by_email("lara@demo.com")
+        if not user:
+            raise HTTPException(status_code=503, detail="Demo persona not seeded. Run: docker compose exec db psql -U nestai -d nestai -f /seed/listings.sql")
+        access_token = create_access_token(user.id, user.role)
+        raw_refresh, hashed_refresh = create_refresh_token(user.id)
+        from datetime import timedelta
+        from core.config import settings
+        from core.redis import RedisKeys
+        await self._redis.setex(
+            RedisKeys.refresh(user.id),
+            int(timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS).total_seconds()),
+            hashed_refresh,
+        )
+        return TokenResponse(access_token=access_token, role=user.role), raw_refresh
+
+    async def get_me(self, user_id: int, role: str):
+        from modules.users.schemas import UserMeOut, StudentProfileOut
+        user = await self._repo.get_by_id(user_id)
+        if not user:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="User not found.")
+        profile = None
+        if role == "student":
+            sp = await self._repo.get_student_profile(user_id)
+            if sp:
+                profile = StudentProfileOut.model_validate(sp)
+        elif role == "landlord":
+            lp = await self._repo.get_landlord_profile(user_id)
+            if lp:
+                profile = {"user_id": lp.user_id}
+        return UserMeOut(id=user.id, email=user.email, role=user.role, profile=profile)
+
+    async def save_onboarding(self, user_id: int, req: OnboardingRequest):
+        data = req.model_dump(exclude_none=True)
+        profile = await self._repo.upsert_student_profile(user_id, data)
+        from modules.users.tasks import embed_profile
+        embed_profile.delay(user_id)
+        return profile

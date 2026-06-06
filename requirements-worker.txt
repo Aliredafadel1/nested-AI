@@ -1,0 +1,5 @@
+# Worker-only ML dependencies (BGE-M3 inference)
+# Only installed in worker-low image — NOT in the API image
+-r requirements.txt
+sentence-transformers==3.0.1
+torch==2.3.1

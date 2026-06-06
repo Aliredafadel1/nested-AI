@@ -1,0 +1,48 @@
+# Web framework
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+
+# Database
+sqlalchemy[asyncio]==2.0.30
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+pgvector==0.3.0
+
+# Cache / broker
+redis[asyncio]==5.0.6
+celery[redis]==5.4.0
+
+# Object storage
+minio==7.2.7
+
+# Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1  # pinned — passlib 1.7.4 incompatible with bcrypt>=4.2
+
+# Config
+pydantic-settings==2.3.1
+python-dotenv==1.0.1
+
+# File handling
+python-multipart==0.0.9
+Pillow==10.4.0
+imagehash==4.3.1
+
+# HTTP client (OSRM calls)
+httpx==0.27.0
+
+# Logging / monitoring
+structlog==24.2.0
+sentry-sdk[fastapi]==2.6.0
+
+# PDF processing (Phase 2b)
+pymupdf==1.24.5
+
+# LLM SDKs (Phase 2b) — routed exclusively through core/llm_router.py
+openai==1.35.3
+anthropic==0.29.0
+
+# Testing
+pytest==8.2.2
+pytest-asyncio==0.23.8

@@ -1,0 +1,42 @@
+# Production overrides — apply on top of docker-compose.yml:
+#   docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml up -d
+#
+# Changes from dev:
+#   - api: uvicorn with 4 workers, no --reload, no volume mount
+#   - frontend: serves pre-built dist via nginx
+#   - All debug flags off
+
+services:
+  api:
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4 --no-access-log
+    volumes: []          # no live code mount in production
+    environment:
+      ENV_FILE: ../.env.prod
+      ENVIRONMENT: production
+
+  worker-high:
+    environment:
+      ENVIRONMENT: production
+
+  worker-medium:
+    environment:
+      ENVIRONMENT: production
+
+  worker-low:
+    environment:
+      ENVIRONMENT: production
+
+  worker-beat:
+    environment:
+      ENVIRONMENT: production
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile.prod
+    image: nestai-frontend-prod
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    restart: unless-stopped
