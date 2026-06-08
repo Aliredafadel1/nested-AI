@@ -96,7 +96,7 @@
 
 **Goal**: `GET /roommate/matches` returns ranked candidates with per-dimension cosine similarity scores. `POST /roommate/requests` persists a request.
 
-**Independent Test**: Lara (night_owl) vs Omar (early_bird) → `dimensions.sleep < 0.4`.
+**Independent Test**: Jawad (night_owl) vs Omar (early_bird) → `dimensions.sleep < 0.4`.
 
 - [ ] T012 [P] [US3] Create `modules/roommate/models.py` — `RoommateRequest` SQLAlchemy ORM model mapping to existing `roommate_requests` table
 
@@ -124,7 +124,7 @@
 
 - [ ] T019 [US3] Update `specs/all_modules.yaml` — add `roommate` module endpoints (`GET /roommate/matches`, `POST /roommate/requests`) with correct auth and response schemas
 
-**Checkpoint**: `GET /roommate/matches` returns JSON array. Lara–Omar `dimensions.sleep < 0.4`. `POST /roommate/requests` returns 201 with `status: pending`.
+**Checkpoint**: `GET /roommate/matches` returns JSON array. Jawad–Omar `dimensions.sleep < 0.4`. `POST /roommate/requests` returns 201 with `status: pending`.
 
 ---
 
@@ -140,7 +140,7 @@
   - `test_listing_embedding_on_create`: POST listing → wait → `embedding IS NOT NULL`
   - `test_listing_embedding_on_update`: PUT listing → new embed task queued
   - `test_roommate_match_5_dimensions`: GET /roommate/matches → all 5 dimension keys present, values in [0,1]
-  - `test_opposite_sleep_low_score`: Lara vs Omar → `dimensions.sleep < 0.4`
+  - `test_opposite_sleep_low_score`: Jawad vs Omar → `dimensions.sleep < 0.4`
   - `test_no_embedding_returns_422`: new student without onboarding → GET /roommate/matches → 422
 
 **Checkpoint**: `docker compose exec api pytest tests/test_embeddings.py -v` — all 9 tests pass.
@@ -204,7 +204,7 @@ T024  # batch seed embed
 1. T001 → T005 (setup + BGE-M3 core)
 2. T006 → T008 (US1 listing embeddings)
 3. T009 → T011 (US2 profile embeddings)
-4. Validate: all seed listings embedded, Lara's profile has 6 vectors
+4. Validate: all seed listings embedded, Jawad's profile has 6 vectors
 
 ### Full (add US3 — roommate matching)
 5. T012 → T019 (roommate module)

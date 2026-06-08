@@ -46,7 +46,7 @@ class AreaIntelService:
             id=n.id,
             name=n.name,
             name_ar=n.name_ar,
-            electricity_hours=float(n.electricity) if n.electricity is not None else None,
+            electricity=float(n.electricity) if n.electricity is not None else None,
             generator_cost=n.generator_cost,
             internet=n.internet,
             transport=n.transport,

@@ -1,7 +1,7 @@
--- NestAI Demo Reset — restores Lara (user_id=2) to her original demo state
+-- NestAI Demo Reset — restores Jawad (user_id=2) to her original demo state
 -- Run before each demo session: docker compose exec db psql -U nestai -d nestai -f /seed/reset_demo.sql
 
--- Remove mutable demo data for Lara and the students who interact with her
+-- Remove mutable demo data for Jawad and the students who interact with her
 DELETE FROM notifications        WHERE user_id IN (2, 10);
 DELETE FROM roommate_requests    WHERE from_user_id = 2 OR to_user_id = 2;
 DELETE FROM saved_listings       WHERE user_id = 2;
@@ -30,7 +30,7 @@ VALUES (
 INSERT INTO agent_sessions (user_id, session_id, state, history, summary)
 VALUES (
     2,
-    'lara-demo-session-001',
+    'jawad-demo-session-001',
     '{"last_intent": "search_listings", "last_query": "studio near AUB under 600", "filters_applied": {"neighbourhood": "Hamra", "max_price": 600}}',
     '[
         {"role": "user", "content": "مرحبا، أبحث عن شقة قريبة من AUB بميزانية أقصاها 600 دولار"},
@@ -40,7 +40,7 @@ VALUES (
         {"role": "user", "content": "هل في مياه منقطعة؟"},
         {"role": "assistant", "content": "نعم، في الحمرا عادةً يُقطع الماء يوم الخميس. لكن الاستوديو الذي أنصحكِ به يملك خزان مياه في المبنى، لذا لن تتأثري بالانقطاع."}
     ]',
-    'Lara searched for studios near AUB under $600. Recommended the Hamra studio at $480. Answered questions about generator hours and water supply.'
+    'Jawad searched for studios near AUB under $600. Recommended the Hamra studio at $480. Answered questions about generator hours and water supply.'
 ) ON CONFLICT (session_id) DO NOTHING;
 
 -- Restore landlord review
@@ -67,8 +67,8 @@ ON CONFLICT DO NOTHING;
 
 INSERT INTO notifications (user_id, type, payload, read) VALUES
     (10, 'roommate_request_received',
-     '{"from_user": "lara@demo.com", "match_score": 0.82, "message": "Lara thinks you would be a great roommate match!"}',
+     '{"from_user": "jawad@demo.com", "match_score": 0.82, "message": "Jawad thinks you would be a great roommate match!"}',
      false)
 ON CONFLICT DO NOTHING;
 
-SELECT 'Demo reset complete — Lara is ready.' AS status;
+SELECT 'Demo reset complete — Jawad is ready.' AS status;

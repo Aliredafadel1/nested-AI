@@ -35,6 +35,11 @@ class StudentProfile(Base):
     priorities:        Mapped[list]      = mapped_column(JSONB, default=list)
     embedding:         Mapped[list | None] = mapped_column(Vector(1024))
     preference_vector: Mapped[list | None] = mapped_column(Vector(1024))
+    dim_sleep:         Mapped[list | None] = mapped_column(Vector(1024))
+    dim_study:         Mapped[list | None] = mapped_column(Vector(1024))
+    dim_cleanliness:   Mapped[list | None] = mapped_column(Vector(1024))
+    dim_guests:        Mapped[list | None] = mapped_column(Vector(1024))
+    dim_budget:        Mapped[list | None] = mapped_column(Vector(1024))
     updated_at:        Mapped[str]       = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
 
     user: Mapped["User"] = relationship(back_populates="student_profile")

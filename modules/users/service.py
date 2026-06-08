@@ -77,7 +77,7 @@ class UserService:
 
     async def demo_login(self):
         from fastapi import HTTPException
-        user = await self._repo.get_by_email("lara@demo.com")
+        user = await self._repo.get_by_email("jawad@demo.com")
         if not user:
             raise HTTPException(status_code=503, detail="Demo persona not seeded. Run: docker compose exec db psql -U nestai -d nestai -f /seed/listings.sql")
         access_token = create_access_token(user.id, user.role)

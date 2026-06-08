@@ -1,5 +1,8 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Literal
+from pydantic import BaseModel, ConfigDict, computed_field
+from core.features import (
+    price_per_sqm, amenity_count, amenity_score,
+    bedroom_type, has_essentials, is_premium, detect_language,
+)
 
 
 class NeighborhoodOut(BaseModel):
@@ -30,7 +33,7 @@ class ListingVerificationOut(BaseModel):
 
 
 class ListingOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, extra="ignore")
     id: int
     landlord_id: int
     neighbourhood_id: int
@@ -48,6 +51,42 @@ class ListingOut(BaseModel):
     fraud_score: float
     photos: list[ListingPhotoOut] = []
     verification: ListingVerificationOut | None = None
+
+    # ── Computed features ────────────────────────────────────────────────────
+    @computed_field
+    @property
+    def price_per_sqm(self) -> float | None:
+        return price_per_sqm(self.price, self.area_sqm)
+
+    @computed_field
+    @property
+    def amenity_count(self) -> int:
+        return amenity_count(self.amenities)
+
+    @computed_field
+    @property
+    def amenity_score(self) -> float:
+        return amenity_score(self.amenities)
+
+    @computed_field
+    @property
+    def bedroom_type(self) -> str:
+        return bedroom_type(self.bedrooms, self.area_sqm)
+
+    @computed_field
+    @property
+    def has_essentials(self) -> bool:
+        return has_essentials(self.amenities)
+
+    @computed_field
+    @property
+    def is_premium(self) -> bool:
+        return is_premium(self.amenities)
+
+    @computed_field
+    @property
+    def listing_language(self) -> str:
+        return detect_language(f"{self.title} {self.description or ''}")
 
 
 class ListingCreate(BaseModel):

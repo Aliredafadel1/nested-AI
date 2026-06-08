@@ -11,6 +11,7 @@ import redis.asyncio as aioredis
 
 from core.llm_router import call_llm
 from core.redis import RedisKeys
+from core.features import amenity_vs_price_anomaly, urgency_word_count, external_contact_flag
 from modules.fraud.repository import FraudRepository
 from modules.fraud.schemas import FraudEvidence, FraudReportOut
 
@@ -78,6 +79,7 @@ class FraudService:
         photo_component   = 0.0
         ip_component      = 0.0
         content_component = 0.0
+        amenity_component = 0.0
         price_zscore      = None
 
         # ── Signal 1: Price z-score (35%) ────────────────────────────────────
@@ -145,7 +147,24 @@ class FraudService:
         except Exception as e:
             logger.warning("fraud.compute | description similarity failed: %s", e)
 
-        # ── Signal 6: LLM text flags (qualitative — no score weight) ─────────
+        # ── Signal 6b: Amenity-vs-price anomaly (10%) ────────────────────────
+        # High amenity score at impossibly low price is a strong fraud signal.
+        # Replaces raw price check — catches "$99 all-inclusive" type scams.
+        try:
+            amenity_component = amenity_vs_price_anomaly(listing.amenities, listing.price)
+            if amenity_component > 0.6:
+                evidence["price_flags"].append("amenity_vs_price_anomaly")
+
+            # Also flag urgency language and off-platform contact
+            urgency = urgency_word_count(listing.title, listing.description)
+            if urgency >= 2:
+                evidence["text_flags"].append(f"urgency_word_count_{urgency}")
+            if external_contact_flag(listing.title, listing.description):
+                evidence["text_flags"].append("external_contact_detected")
+        except Exception as e:
+            logger.warning("fraud.compute | amenity anomaly failed: %s", e)
+
+        # ── Signal 7: LLM text flags (qualitative — no score weight) ─────────
         try:
             text_input = f"{listing.title}. {listing.description or ''}"
             flags_raw = call_llm(
@@ -164,21 +183,23 @@ class FraudService:
         except Exception as e:
             logger.warning("fraud.compute | text classification failed: %s", e)
 
-        # ── Final score — rebalanced for 5 numeric signals ───────────────────
-        # price 35% | ip_velocity 25% | photo 15% | content 15% | phone 10%
+        # ── Final score — 6 numeric signals ──────────────────────────────────
+        # price 30% | ip_velocity 20% | amenity_anomaly 20% | photo 12% | content 12% | phone 6%
         score = (
-            0.35 * price_component
-            + 0.25 * ip_component
-            + 0.15 * photo_component
-            + 0.15 * content_component
-            + 0.10 * phone_component
+            0.30 * price_component
+            + 0.20 * ip_component
+            + 0.20 * amenity_component
+            + 0.12 * photo_component
+            + 0.12 * content_component
+            + 0.06 * phone_component
         )
         score = round(min(score, 1.0), 3)
         logger.info(
             "fraud.compute | listing=%s score=%.3f "
-            "(price=%.2f ip=%.2f photo=%.2f content=%.2f phone=%.2f)",
+            "(price=%.2f ip=%.2f amenity=%.2f photo=%.2f content=%.2f phone=%.2f)",
             listing_id, score,
-            price_component, ip_component, photo_component, content_component, phone_component,
+            price_component, ip_component, amenity_component,
+            photo_component, content_component, phone_component,
         )
 
         report = await self._repo.upsert(listing_id, score, price_zscore, evidence)

@@ -1,3 +1,5 @@
+import json
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -44,7 +46,7 @@ class ContractsRepository:
             ),
             {
                 "ocr":      ocr_used,
-                "analysis": __import__("json").dumps(analysis),
+                "analysis": json.dumps(analysis),
                 "status":   status,
                 "id":       contract_id,
             },

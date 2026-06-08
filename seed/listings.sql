@@ -14,7 +14,7 @@ INSERT INTO users (id, email, password_hash, role) VALUES
     (6, 'rania@demo.com',     '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMzLMEFOwqFe6rQl2F9pCVoW4G', 'landlord'),
     (7, 'scammer@demo.com',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMzLMEFOwqFe6rQl2F9pCVoW4G', 'landlord'),
     -- Students (5 total — diverse preferences for roommate matching tests)
-    (2,  'lara@demo.com',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMzLMEFOwqFe6rQl2F9pCVoW4G', 'student'),
+    (2,  'jawad@demo.com',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMzLMEFOwqFe6rQl2F9pCVoW4G', 'student'),
     (8,  'omar@demo.com',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMzLMEFOwqFe6rQl2F9pCVoW4G', 'student'),
     (9,  'maya@demo.com',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMzLMEFOwqFe6rQl2F9pCVoW4G', 'student'),
     (10, 'karim@demo.com',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMzLMEFOwqFe6rQl2F9pCVoW4G', 'student'),
@@ -36,13 +36,13 @@ ON CONFLICT (user_id) DO NOTHING;
 -- Diverse preferences to produce meaningful roommate matching dimension scores
 
 INSERT INTO student_profiles (user_id, university_id, budget_min, budget_max, sleep_schedule, study_habits, cleanliness, guests, language, priorities) VALUES
-    -- Lara: AUB, night owl, quiet studier, high cleanliness, rarely hosts
+    -- Jawad: AUB, night owl, quiet studier, high cleanliness, rarely hosts
     (2,  1, 400, 700, 'night_owl',  'quiet',    'high',   'rarely',    'mixed',   '["proximity_to_university","generator_coverage","quiet_environment"]'),
-    -- Omar: LAU Beirut, early bird, quiet, medium cleanliness, sometimes hosts — opposite sleep from Lara
+    -- Omar: LAU Beirut, early bird, quiet, medium cleanliness, sometimes hosts — opposite sleep from Jawad
     (8,  2, 300, 500, 'early_bird', 'quiet',    'medium', 'sometimes', 'arabic',  '["affordable_rent","proximity_to_university","public_transport"]'),
     -- Maya: USJ, flexible, social, low cleanliness, often hosts — social butterfly
     (9,  3, 500, 800, 'flexible',   'moderate', 'low',    'often',     'french',  '["social_environment","furnished","near_cafes"]'),
-    -- Karim: LU Hadath, night owl, flexible, medium cleanliness, rarely hosts — similar to Lara on most dims
+    -- Karim: LU Hadath, night owl, flexible, medium cleanliness, rarely hosts — similar to Jawad on most dims
     (10, 4, 250, 450, 'night_owl',  'flexible', 'medium', 'rarely',    'english', '["affordable_rent","generator_coverage","wifi_quality"]'),
     -- Sarah: AUB, early bird, quiet, high cleanliness, never hosts — high standards
     (11, 1, 600, 900, 'early_bird', 'quiet',    'high',   'never',     'english', '["proximity_to_university","quiet_environment","cleanliness"]')
@@ -464,10 +464,10 @@ INSERT INTO fraud_reports (listing_id, score, price_zscore, evidence) VALUES
 ON CONFLICT DO NOTHING;
 
 -- ─── LARA''S COMPLETE DEMO STORY ───────────────────────────────────────────────
--- Lara (user_id=2) has a full journey: saved listings, roommate request,
+-- Jawad (user_id=2) has a full journey: saved listings, roommate request,
 -- agent conversation, and a landlord review — all 8 user stories are demonstrable
 
--- Lara saves 3 listings
+-- Jawad saves 3 listings
 INSERT INTO saved_listings (user_id, listing_id)
 SELECT 2, id FROM listings
 WHERE title IN (
@@ -477,7 +477,7 @@ WHERE title IN (
 )
 ON CONFLICT (user_id, listing_id) DO NOTHING;
 
--- Lara sends a roommate request to Karim (user_id=10)
+-- Jawad sends a roommate request to Karim (user_id=10)
 -- They are similar on most dimensions (both night owls, rarely host guests)
 -- making it a realistic high-score match
 INSERT INTO roommate_requests (from_user_id, to_user_id, score, dimensions, status)
@@ -488,11 +488,11 @@ VALUES (
     'pending'
 ) ON CONFLICT DO NOTHING;
 
--- Lara''s agent conversation history (Arabic + English — tests multilingual)
+-- Jawad''s agent conversation history (Arabic + English — tests multilingual)
 INSERT INTO agent_sessions (user_id, session_id, state, history, summary)
 VALUES (
     2,
-    'lara-demo-session-001',
+    'jawad-demo-session-001',
     '{"last_intent": "search_listings", "last_query": "studio near AUB under 600", "filters_applied": {"neighbourhood": "Hamra", "max_price": 600}}',
     '[
         {"role": "user", "content": "مرحبا، أبحث عن شقة قريبة من AUB بميزانية أقصاها 600 دولار"},
@@ -502,10 +502,10 @@ VALUES (
         {"role": "user", "content": "هل في مياه منقطعة؟"},
         {"role": "assistant", "content": "نعم، في الحمرا عادةً يُقطع الماء يوم الخميس. لكن الاستوديو الذي أنصحكِ به يملك خزان مياه في المبنى، لذا لن تتأثري بالانقطاع. هذه تفصيلة مهمة جداً يجب التحقق منها قبل التوقيع."}
     ]',
-    'Lara searched for studios near AUB under $600. Recommended the Hamra studio at $480. Answered questions about generator hours (12h EDL + 12h generator) and water supply (Thursday cuts, building has tank).'
+    'Jawad searched for studios near AUB under $600. Recommended the Hamra studio at $480. Answered questions about generator hours (12h EDL + 12h generator) and water supply (Thursday cuts, building has tank).'
 ) ON CONFLICT (session_id) DO NOTHING;
 
--- Lara reviews landlord 1 (demo landlord) based on the studio listing
+-- Jawad reviews landlord 1 (demo landlord) based on the studio listing
 INSERT INTO landlord_reviews (landlord_id, reviewer_id, listing_id, maintenance, responsiveness, honesty, hidden_fees, ai_summary)
 SELECT
     1, 2, listings.id,
@@ -514,7 +514,7 @@ SELECT
 FROM listings WHERE title = 'Studio قريب من AUB — الحمرا' LIMIT 1
 ON CONFLICT (landlord_id, reviewer_id, listing_id) DO NOTHING;
 
--- Lara''s notifications
+-- Jawad''s notifications
 INSERT INTO notifications (user_id, type, payload, read) VALUES
     (2, 'roommate_request_sent',
      '{"to_user": "karim@demo.com", "match_score": 0.82, "top_dimension": "sleep"}',
@@ -527,10 +527,10 @@ INSERT INTO notifications (user_id, type, payload, read) VALUES
      true)
 ON CONFLICT DO NOTHING;
 
--- Omar''s notification (received Lara''s roommate request... wait, she sent it to Karim)
+-- Omar''s notification (received Jawad''s roommate request... wait, she sent it to Karim)
 -- Karim receives the roommate request notification
 INSERT INTO notifications (user_id, type, payload, read) VALUES
     (10, 'roommate_request_received',
-     '{"from_user": "lara@demo.com", "match_score": 0.82, "message": "Lara thinks you would be a great roommate match!"}',
+     '{"from_user": "jawad@demo.com", "match_score": 0.82, "message": "Jawad thinks you would be a great roommate match!"}',
      false)
 ON CONFLICT DO NOTHING;

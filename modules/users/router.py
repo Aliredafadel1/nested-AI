@@ -86,7 +86,7 @@ async def demo_login(
     response: Response,
     db: AsyncSession = Depends(get_db),
 ):
-    """One-click demo login as Lara — no password required. Demo use only."""
+    """One-click demo login as Jawad — no password required. Demo use only."""
     redis = get_async_redis()
     svc = UserService(db, redis)
     token, raw_refresh = await svc.demo_login()

@@ -102,10 +102,10 @@ curl -s http://localhost:8000/roommate/matches \
 ## Scenario 5 — Opposite sleep schedules produce low sleep score
 
 ```bash
-# Lara = night_owl, Omar = early_bird (both seeded)
+# Jawad = night_owl, Omar = early_bird (both seeded)
 # After their profiles are embedded:
 curl -s http://localhost:8000/roommate/matches \
-  -H "Authorization: Bearer <lara_token>" | jq '.[] | select(.user_id == <omar_id>) | .dimensions.sleep'
+  -H "Authorization: Bearer <jawad_token>" | jq '.[] | select(.user_id == <omar_id>) | .dimensions.sleep'
 
 # Expected: < 0.4
 ```

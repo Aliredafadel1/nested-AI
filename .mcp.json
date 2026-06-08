@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "nestai-postgres": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://nestai:nestai@localhost:5432/nestai"
+      ],
+      "description": "Direct read access to the NestAI PostgreSQL database — query listings, neighborhoods, student_profiles, fraud_reports, contracts, roommate_requests, universities, notifications."
+    },
+    "nestai-filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "d:\\capstone project"
+      ],
+      "description": "Full filesystem access scoped to the NestAI project root — read/write source files, migrations, seeds, specs, notebooks."
+    }
+  }
+}

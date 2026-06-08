@@ -40,10 +40,10 @@ export function LoginPage() {
     setDemoLoading(true)
     try {
       const tok = await apiJson<{ access_token: string; role: string }>("/auth/demo", { method: "POST" })
-      setAuth(tok.access_token, { id: 0, email: "lara@demo.com", role: tok.role })
+      setAuth(tok.access_token, { id: 0, email: "jawad@demo.com", role: tok.role })
       const me = await getMe()
       setAuth(tok.access_token, { id: me.id, email: me.email, role: me.role })
-      toast.success("Welcome, Lara! 👋")
+      toast.success("Welcome, Jawad! 👋")
       navigate("/listings")
     } catch (e: any) {
       toast.error(e.message || "Demo login failed")
@@ -62,7 +62,7 @@ export function LoginPage() {
           disabled={demoLoading}
           className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-semibold text-sm transition disabled:opacity-60"
         >
-          {demoLoading ? "Loading demo…" : "✨ Try Demo as Lara (Student)"}
+          {demoLoading ? "Loading demo…" : "✨ Try Demo as Jawad (Student)"}
         </button>
       </div>
 

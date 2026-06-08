@@ -183,7 +183,7 @@ A student clicks on a neighbourhood on the Leaflet map and sees an area intellig
 - **SC-004**: Spec validator exits 0 against all 10 module YAML contracts at project completion.
 - **SC-005**: Full test suite (3 test files) passes against real PostgreSQL and Redis containers.
 - **SC-006**: LLM cost achieves ≥85% reduction vs. routing everything through GPT-4o, measured by TASK_TIERS distribution.
-- **SC-007**: Demo mode (one-click Lara persona login) loads and demonstrates all 8 user stories end-to-end.
+- **SC-007**: Demo mode (one-click Jawad persona login) loads and demonstrates all 8 user stories end-to-end.
 
 ## Assumptions
 
@@ -193,4 +193,4 @@ A student clicks on a neighbourhood on the Leaflet map and sees an area intellig
 - OSRM routing server is seeded with Lebanon's OpenStreetMap data.
 - A single developer builds this in a 14-day sprint following the phase plan in CLAUDE.md.
 - Production deployment is Docker Compose on a single VPS — not Kubernetes.
-- The "Lara" demo persona is a pre-seeded student account with complete onboarding for presentation use.
+- The "Jawad" demo persona is a pre-seeded student account with complete onboarding for presentation use.

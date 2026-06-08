@@ -1,21 +1,25 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+const API_TARGET = process.env.VITE_API_TARGET ?? 'http://localhost:8000'
+
 export default defineConfig({
   plugins: [react()],
   server: {
+    host: '0.0.0.0',
+    port: 3000,
     proxy: {
-      '/auth': 'http://localhost:8000',
-      '/users': 'http://localhost:8000',
-      '/listings': 'http://localhost:8000',
-      '/fraud': 'http://localhost:8000',
-      '/contracts': 'http://localhost:8000',
-      '/agent': 'http://localhost:8000',
-      '/areas': 'http://localhost:8000',
-      '/estimator': 'http://localhost:8000',
-      '/notifications': 'http://localhost:8000',
-      '/roommate': 'http://localhost:8000',
-      '/health': 'http://localhost:8000',
+      '/auth':          API_TARGET,
+      '/users':         API_TARGET,
+      '/listings':      API_TARGET,
+      '/fraud':         API_TARGET,
+      '/contracts':     API_TARGET,
+      '/agent':         API_TARGET,
+      '/areas':         API_TARGET,
+      '/estimator':     API_TARGET,
+      '/notifications': API_TARGET,
+      '/roommate':      API_TARGET,
+      '/health':        API_TARGET,
     },
   },
 })
