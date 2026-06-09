@@ -2,8 +2,13 @@
 Exits 0 on success, 1 on any violation.
 """
 import sys
+from pathlib import Path
 
 import yaml
+
+# Works in Docker (script at /app/, specs mounted at /specs/)
+# and in CI (script at docker/, specs at specs/ relative to repo root)
+SPEC_FILE = Path(__file__).parent.parent / "specs" / "all_modules.yaml"
 
 REQUIRED_MODULE_FIELDS = {"description", "tables", "endpoints"}
 REQUIRED_ENDPOINT_FIELDS = {"method", "path", "status"}
@@ -21,10 +26,10 @@ def warn(msg: str) -> None:
 
 def main() -> None:
     try:
-        with open("/specs/all_modules.yaml") as f:
+        with open(SPEC_FILE) as f:
             spec = yaml.safe_load(f)
     except FileNotFoundError:
-        fail("specs/all_modules.yaml not found")
+        fail(f"specs/all_modules.yaml not found (looked at {SPEC_FILE})")
     except yaml.YAMLError as e:
         fail(f"YAML parse error: {e}")
 
