@@ -2,6 +2,7 @@
 Runs against real PostgreSQL + MinIO. Uses sync TestClient.
 """
 import io
+
 import pytest
 from starlette.testclient import TestClient
 

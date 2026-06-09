@@ -1,11 +1,11 @@
+import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-import redis.asyncio as aioredis
 
 from core.database import get_db
 from core.redis import get_redis_dep
+from modules.area_intel.schemas import CompareOut, CompareRequest, NeighborhoodOut
 from modules.area_intel.service import AreaIntelService
-from modules.area_intel.schemas import NeighborhoodOut, CompareRequest, CompareOut
 
 router = APIRouter(prefix="/areas", tags=["area_intel"])
 

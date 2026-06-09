@@ -1,6 +1,6 @@
-from sqlalchemy import Integer, Numeric, ForeignKey, TIMESTAMP, String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import TIMESTAMP, ForeignKey, Integer, Numeric, String, func
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Mapped, mapped_column
 
 from core.database import Base
 

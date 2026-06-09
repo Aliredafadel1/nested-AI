@@ -1,7 +1,13 @@
 from pydantic import BaseModel, ConfigDict, computed_field
+
 from core.features import (
-    price_per_sqm, amenity_count, amenity_score,
-    bedroom_type, has_essentials, is_premium, detect_language,
+    amenity_count,
+    amenity_score,
+    bedroom_type,
+    detect_language,
+    has_essentials,
+    is_premium,
+    price_per_sqm,
 )
 
 

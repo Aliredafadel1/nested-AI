@@ -37,8 +37,9 @@ def _cache_key(text: str) -> str:
 
 def _get_cached(text: str) -> list[float] | None:
     try:
-        from core.redis import get_sync_redis, RedisKeys
         import json
+
+        from core.redis import RedisKeys, get_sync_redis
         r = get_sync_redis()
         try:
             raw = r.get(RedisKeys.embed_cache(_cache_key(text)))
@@ -51,8 +52,9 @@ def _get_cached(text: str) -> list[float] | None:
 
 def _set_cached(text: str, vector: list[float]) -> None:
     try:
-        from core.redis import get_sync_redis, RedisKeys
         import json
+
+        from core.redis import RedisKeys, get_sync_redis
         r = get_sync_redis()
         try:
             r.setex(RedisKeys.embed_cache(_cache_key(text)), EMBED_CACHE_TTL, json.dumps(vector))
@@ -88,7 +90,7 @@ def embed_batch(texts: list[str], normalize: bool = True) -> list[list[float]]:
     if uncached_idx:
         uncached_texts = [texts[i] for i in uncached_idx]
         vecs = _model.encode(uncached_texts, normalize_embeddings=normalize).tolist()
-        for i, vec in zip(uncached_idx, vecs):
+        for i, vec in zip(uncached_idx, vecs, strict=True):
             if len(vec) != EMBED_DIM:
                 raise ValueError(f"Expected {EMBED_DIM}-dim vector, got {len(vec)}")
             _set_cached(texts[i], vec)

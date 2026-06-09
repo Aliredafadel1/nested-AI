@@ -1,23 +1,27 @@
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
-import redis.asyncio as aioredis
 import redis as syncredis
+import redis.asyncio as aioredis
+
 from core.config import settings
 
+# ── Shared connection pool (created once at import time) ─────────────────────
+# All callers share this pool — no per-request connection setup overhead.
+_pool = aioredis.ConnectionPool.from_url(
+    settings.REDIS_URL,
+    decode_responses=True,
+    max_connections=20,
+)
 
-# ── Clients ──────────────────────────────────────────────────────────────────
 
 def get_async_redis() -> aioredis.Redis:
-    return aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+    """Return a client backed by the shared pool. Do NOT call aclose() on it."""
+    return aioredis.Redis(connection_pool=_pool)
 
 
 async def get_redis_dep() -> AsyncGenerator[aioredis.Redis, None]:
-    """FastAPI dependency that opens and properly closes a Redis connection."""
-    r = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
-    try:
-        yield r
-    finally:
-        await r.aclose()
+    """FastAPI dependency — yields shared-pool client (no teardown needed)."""
+    yield aioredis.Redis(connection_pool=_pool)
 
 
 def get_sync_redis() -> syncredis.Redis:
@@ -25,6 +29,7 @@ def get_sync_redis() -> syncredis.Redis:
 
 
 def get_pubsub_redis() -> aioredis.Redis:
+    # Pub/sub needs its own dedicated connection, not the shared pool.
     return aioredis.from_url(settings.REDIS_URL, decode_responses=True)
 
 

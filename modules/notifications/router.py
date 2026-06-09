@@ -1,13 +1,13 @@
+import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-import redis.asyncio as aioredis
 
 from core.database import get_db
 from core.redis import get_redis_dep
 from core.security import get_current_user
-from modules.notifications.service import NotificationsService
 from modules.notifications.schemas import NotificationOut
+from modules.notifications.service import NotificationsService
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 

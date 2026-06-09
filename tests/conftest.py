@@ -11,8 +11,8 @@ import os
 os.environ.setdefault("ENVIRONMENT", "testing")
 
 import asyncio
+
 import asyncpg
-import pytest
 
 
 def pytest_configure(config):

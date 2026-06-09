@@ -1,14 +1,14 @@
-from fastapi import APIRouter, Depends, UploadFile, File
+import redis.asyncio as aioredis
+from fastapi import APIRouter, Depends, File, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-import redis.asyncio as aioredis
 
 from core.database import get_db
 from core.redis import get_redis_dep
 from core.security import require_student_role
 from modules.agent.repository import AgentRepository
+from modules.agent.schemas import ChatRequest, FeedbackRequest, FeedbackResponse, TranscribeResponse
 from modules.agent.service import AgentService
-from modules.agent.schemas import ChatRequest, TranscribeResponse, FeedbackRequest, FeedbackResponse
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 

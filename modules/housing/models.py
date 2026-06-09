@@ -1,7 +1,17 @@
-from sqlalchemy import String, Integer, Boolean, Numeric, SmallInteger, ForeignKey, TIMESTAMP, Text, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import JSONB
 from pgvector.sqlalchemy import Vector
+from sqlalchemy import (
+    TIMESTAMP,
+    Boolean,
+    ForeignKey,
+    Integer,
+    Numeric,
+    SmallInteger,
+    String,
+    Text,
+    func,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database import Base
 from modules.area_intel.models import Neighborhood  # area_intel owns this table

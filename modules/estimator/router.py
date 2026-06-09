@@ -1,12 +1,12 @@
+import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-import redis.asyncio as aioredis
 
 from core.database import get_db
 from core.redis import get_redis_dep
 from core.security import require_student_role
+from modules.estimator.schemas import EstimateOut, EstimateRequest
 from modules.estimator.service import EstimatorService
-from modules.estimator.schemas import EstimateRequest, EstimateOut
 
 router = APIRouter(prefix="/estimator", tags=["estimator"])
 

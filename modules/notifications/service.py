@@ -3,11 +3,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
+import redis.asyncio as aioredis
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-import redis.asyncio as aioredis
 
 from core.redis import RedisKeys
 from modules.notifications.repository import NotificationsRepository

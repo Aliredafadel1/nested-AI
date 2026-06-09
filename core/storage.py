@@ -1,14 +1,15 @@
-import io
 import hashlib
-from enum import Enum
+import io
+from enum import StrEnum
+
+from fastapi import HTTPException, UploadFile
 from minio import Minio
 from minio.error import S3Error
-from fastapi import HTTPException, UploadFile
 
 from core.config import settings
 
 
-class Bucket(str, Enum):
+class Bucket(StrEnum):
     LISTING_PHOTOS = "listing-photos"
     CONTRACTS      = "contracts"
     AUDIO          = "audio"
@@ -93,7 +94,7 @@ async def upload_file(
             metadata={"owner_id": str(owner_id)} if owner_id else {},
         )
     except S3Error as e:
-        raise HTTPException(status_code=500, detail=f"Storage error: {e}")
+        raise HTTPException(status_code=500, detail=f"Storage error: {e}") from e
 
     return object_name
 

@@ -1,12 +1,12 @@
 import json
 
+import redis.asyncio as aioredis
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-import redis.asyncio as aioredis
 
 from core.redis import RedisKeys
 from modules.area_intel.repository import AreaIntelRepository
-from modules.area_intel.schemas import NeighborhoodOut, CompareOut
+from modules.area_intel.schemas import CompareOut, NeighborhoodOut
 
 AREA_CACHE_TTL = 24 * 3600
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
+
 from typing import TypedDict
+
 from pydantic import BaseModel
 
 
@@ -14,12 +16,14 @@ class AgentState(TypedDict, total=False):
     comparison:  str | None
     response:    str | None
     errors:      list[str]
+    language:    str | None   # "ar" | "en" | None (auto-detect)
     _regen:      bool  # internal flag: validate_comparison requests regeneration
 
 
 class ChatRequest(BaseModel):
     query:      str
     session_id: str | None = None
+    language:   str | None = None   # "ar" | "en" — if None, auto-detected from query
 
 
 class ChatResponse(BaseModel):

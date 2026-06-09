@@ -11,7 +11,7 @@ class NotificationsRepository:
     async def get_unread(self, user_id: int) -> list[Notification]:
         result = await self._db.execute(
             select(Notification)
-            .where(Notification.user_id == user_id, Notification.read == False)
+            .where(Notification.user_id == user_id, ~Notification.read)
             .order_by(Notification.created_at.asc())
         )
         return list(result.scalars().all())

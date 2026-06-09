@@ -1,10 +1,17 @@
-from fastapi import APIRouter, Depends, Response, Cookie
+from fastapi import APIRouter, Cookie, Depends, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_db
 from core.redis import get_async_redis
 from core.security import get_current_user, require_student_role
-from modules.users.schemas import RegisterRequest, LoginRequest, OnboardingRequest, TokenResponse, StudentProfileOut, UserMeOut
+from modules.users.schemas import (
+    LoginRequest,
+    OnboardingRequest,
+    RegisterRequest,
+    StudentProfileOut,
+    TokenResponse,
+    UserMeOut,
+)
 from modules.users.service import UserService
 
 router = APIRouter(tags=["auth"])
@@ -35,7 +42,6 @@ async def register(
     svc = UserService(db, redis)
     token, raw_refresh = await svc.register(req)
     _set_refresh_cookie(response, raw_refresh)
-    await redis.aclose()
     return token
 
 
@@ -49,7 +55,6 @@ async def login(
     svc = UserService(db, redis)
     token, raw_refresh = await svc.login(req)
     _set_refresh_cookie(response, raw_refresh)
-    await redis.aclose()
     return token
 
 
@@ -70,14 +75,13 @@ async def refresh(
     # For simplicity, we embed user_id in the refresh token as "uid_<id>_<random>"
     try:
         user_id = int(refresh_token.split("_")[1])
-    except (IndexError, ValueError):
-        raise HTTPException(status_code=401, detail="Invalid refresh token format.")
+    except (IndexError, ValueError) as e:
+        raise HTTPException(status_code=401, detail="Invalid refresh token format.") from e
 
     redis = get_async_redis()
     svc = UserService(db, redis)
     token, raw_new = await svc.refresh(user_id, refresh_token)
     _set_refresh_cookie(response, raw_new)
-    await redis.aclose()
     return token
 
 
@@ -91,7 +95,6 @@ async def demo_login(
     svc = UserService(db, redis)
     token, raw_refresh = await svc.demo_login()
     _set_refresh_cookie(response, raw_refresh)
-    await redis.aclose()
     return token
 
 
@@ -105,7 +108,6 @@ async def logout(
     svc = UserService(db, redis)
     await svc.logout(int(current_user["sub"]))
     response.delete_cookie(REFRESH_COOKIE)
-    await redis.aclose()
 
 
 @router.get("/users/me", response_model=UserMeOut)
@@ -115,9 +117,7 @@ async def get_me(
 ):
     redis = get_async_redis()
     svc = UserService(db, redis)
-    result = await svc.get_me(int(current_user["sub"]), current_user["role"])
-    await redis.aclose()
-    return result
+    return await svc.get_me(int(current_user["sub"]), current_user["role"])
 
 
 @router.post("/users/onboarding", response_model=StudentProfileOut)
@@ -128,6 +128,4 @@ async def onboarding(
 ):
     redis = get_async_redis()
     svc = UserService(db, redis)
-    profile = await svc.save_onboarding(int(current_user["sub"]), req)
-    await redis.aclose()
-    return profile
+    return await svc.save_onboarding(int(current_user["sub"]), req)

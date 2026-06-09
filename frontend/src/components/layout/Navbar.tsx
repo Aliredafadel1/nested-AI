@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom"
-import { Home, MessageSquare, FileText, Users, LayoutDashboard, Menu, X } from "lucide-react"
+import { Home, MessageSquare, FileText, Users, LayoutDashboard, Menu, X, UserCircle } from "lucide-react"
 import { useState } from "react"
 import { useAuthStore } from "../../stores/authStore"
 import { logout } from "../../api/users"
@@ -24,6 +24,7 @@ export function Navbar() {
     { to: "/agent", label: "AI Chat", icon: MessageSquare, show: isStudent },
     { to: "/contracts", label: "Contracts", icon: FileText, show: isStudent },
     { to: "/roommate", label: "Roommate", icon: Users, show: isStudent },
+    { to: "/onboarding", label: "Profile", icon: UserCircle, show: isStudent },
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, show: isLandlord },
   ].filter((l) => l.show)
 

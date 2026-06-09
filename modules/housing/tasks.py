@@ -3,7 +3,7 @@ import logging
 
 from core.celery_config import celery_app
 from core.database import get_sync_db
-from core.redis import get_sync_redis, RedisKeys
+from core.redis import RedisKeys, get_sync_redis
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +30,9 @@ def embed_listing(self, listing_id: int) -> None:
         return
 
     try:
-        from core.embeddings import embed_text
         from sqlalchemy import select, text
+
+        from core.embeddings import embed_text
         from modules.housing.models import Listing, Neighborhood
 
         # Step 1: read listing data — close session before slow inference
@@ -81,7 +82,8 @@ def embed_listing(self, listing_id: int) -> None:
     queue="nestai:low",
 )
 def batch_embed_seed_data() -> None:
-    from sqlalchemy import select, text
+    from sqlalchemy import select
+
     from modules.housing.models import Listing
 
     with get_sync_db() as db:

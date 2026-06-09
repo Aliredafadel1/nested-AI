@@ -5,18 +5,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from core.config import settings
-from core.logging import configure_logging, RequestIDMiddleware, SecurityHeadersMiddleware
+from core.logging import RequestIDMiddleware, SecurityHeadersMiddleware, configure_logging
 from core.security import RateLimitMiddleware
-
-from modules.users.router import router as users_router
-from modules.housing.router import router as housing_router
-from modules.roommate.router import router as roommate_router
 from modules.agent.router import router as agent_router
-from modules.fraud.router import router as fraud_router
-from modules.contracts.router import router as contracts_router
 from modules.area_intel.router import router as area_intel_router
+from modules.contracts.router import router as contracts_router
 from modules.estimator.router import router as estimator_router
+from modules.fraud.router import router as fraud_router
+from modules.housing.router import router as housing_router
 from modules.notifications.router import router as notifications_router
+from modules.roommate.router import router as roommate_router
+from modules.users.router import router as users_router
 
 
 @asynccontextmanager

@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import io
-import json
 import uuid
 
 from fastapi import HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.storage import get_minio_client, Bucket, validate_magic_bytes
+from core.storage import Bucket, get_minio_client
 from modules.contracts.repository import ContractsRepository
-from modules.contracts.schemas import ContractCreateOut, ContractOut, ContractAnalysis
+from modules.contracts.schemas import ContractAnalysis, ContractCreateOut, ContractOut
 
 MAX_CONTRACT_SIZE = 10 * 1024 * 1024  # 10 MB
 PDF_MAGIC = b"%PDF"
@@ -51,7 +50,6 @@ class ContractsService:
         minio_key = f"contracts/{user_id}/{uuid.uuid4()}.pdf"
         client = get_minio_client()
         try:
-            from minio.error import S3Error
             client.put_object(
                 bucket_name=Bucket.CONTRACTS.value,
                 object_name=minio_key,
@@ -61,7 +59,7 @@ class ContractsService:
                 metadata={"owner_id": str(user_id)},
             )
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Storage error: {e}")
+            raise HTTPException(status_code=500, detail=f"Storage error: {e}") from e
 
         contract = await self._repo.create(user_id, minio_key)
 

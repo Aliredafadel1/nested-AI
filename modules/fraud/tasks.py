@@ -18,9 +18,10 @@ def run_fraud_check(listing_id: int) -> None:
     logger.info("run_fraud_check | listing_id=%s", listing_id)
 
     async def _run():
-        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-        from core.config import settings
         import redis.asyncio as aioredis
+        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+        from core.config import settings
         from modules.fraud.service import FraudService
 
         engine = create_async_engine(settings.DATABASE_URL)

@@ -2,16 +2,14 @@ from __future__ import annotations
 
 import json
 import logging
-import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from fastapi import HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as aioredis
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.features import amenity_vs_price_anomaly, external_contact_flag, urgency_word_count
 from core.llm_router import call_llm
 from core.redis import RedisKeys
-from core.features import amenity_vs_price_anomaly, urgency_word_count, external_contact_flag
 from modules.fraud.repository import FraudRepository
 from modules.fraud.schemas import FraudEvidence, FraudReportOut
 
@@ -26,7 +24,7 @@ def _hamming_distance(a: str, b: str) -> int:
         return 999
     a_bits = bin(int(a, 16))[2:].zfill(len(a) * 4)
     b_bits = bin(int(b, 16))[2:].zfill(len(b) * 4)
-    return sum(x != y for x, y in zip(a_bits, b_bits))
+    return sum(x != y for x, y in zip(a_bits, b_bits, strict=True))
 
 
 class FraudService:
@@ -58,7 +56,7 @@ class FraudService:
             score=0.0,
             price_zscore=None,
             evidence=FraudEvidence(),
-            computed_at=datetime.now(timezone.utc),
+            computed_at=datetime.now(UTC),
         )
 
     async def compute_fraud_score(self, listing_id: int) -> None:

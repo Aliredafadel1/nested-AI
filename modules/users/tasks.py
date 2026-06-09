@@ -27,8 +27,9 @@ _DIM_TEMPLATES = {
     retry_backoff_max=90,
 )
 def embed_profile(self, user_id: int) -> None:
-    from core.embeddings import embed_batch
     from sqlalchemy import select, text
+
+    from core.embeddings import embed_batch
     from modules.users.models import StudentProfile
 
     # Step 1: read profile — close session before slow inference
@@ -63,7 +64,7 @@ def embed_profile(self, user_id: int) -> None:
         ["embedding = :embedding"] + [f"{k} = :{k}" for k in dim_keys]
     )
     params = {"user_id": user_id, "embedding": str(full_vec)}
-    for k, v in zip(dim_keys, dim_vecs):
+    for k, v in zip(dim_keys, dim_vecs, strict=True):
         params[k] = str(v)
 
     with get_sync_db() as db:

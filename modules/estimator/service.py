@@ -3,14 +3,14 @@ from __future__ import annotations
 import logging
 
 import httpx
+import redis.asyncio as aioredis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-import redis.asyncio as aioredis
 
 from core.config import settings
 from modules.area_intel.service import AreaIntelService
 from modules.estimator.repository import EstimatorRepository
-from modules.estimator.schemas import EstimateRequest, EstimateOut
+from modules.estimator.schemas import EstimateOut, EstimateRequest
 
 logger = logging.getLogger(__name__)
 

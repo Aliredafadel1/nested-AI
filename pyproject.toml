@@ -1,0 +1,26 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+exclude = ["notebooks/"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes (undefined names, unused imports)
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+]
+ignore = [
+    "E501",  # line too long — handled by formatter
+    "B008",  # do not perform function calls in default args (FastAPI Depends pattern)
+    "UP007", # X | Y union syntax — keep Optional[] for SQLAlchemy compat
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F811"]  # allow redefined names in test helpers
+"migrations/*" = ["E", "W", "F"]  # generated SQL migration wrappers
+
+[tool.ruff.lint.isort]
+known-first-party = ["core", "modules", "app"]

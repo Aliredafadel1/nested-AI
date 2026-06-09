@@ -1,8 +1,14 @@
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
 from sqlalchemy.orm import selectinload
 
-from modules.housing.models import Listing, ListingPhoto, ListingVerification, SavedListing, Neighborhood
+from modules.housing.models import (
+    Listing,
+    ListingPhoto,
+    ListingVerification,
+    Neighborhood,
+    SavedListing,
+)
 from modules.housing.schemas import ListingFilters
 
 
@@ -213,6 +219,34 @@ class HousingRepository:
             {"ip": ip_address, "hours": str(hours)},
         )
         return result.scalar_one() or 0
+
+    async def filter_search(
+        self,
+        limit: int = 10,
+        min_price: int | None = None,
+        max_price: int | None = None,
+        area_name: str | None = None,
+        bedrooms: int | None = None,
+    ) -> list["Listing"]:
+        """SQL-only fallback search used when BGE-M3 is unavailable in the API process."""
+        query = (
+            select(Listing)
+            .options(selectinload(Listing.photos), selectinload(Listing.verification))
+            .where(Listing.status == "active")
+        )
+        if min_price is not None:
+            query = query.where(Listing.price >= min_price)
+        if max_price is not None:
+            query = query.where(Listing.price <= max_price)
+        if bedrooms is not None:
+            query = query.where(Listing.bedrooms == bedrooms)
+        if area_name:
+            query = query.join(Listing.neighborhood).where(
+                Neighborhood.name.ilike(f"%{area_name}%")
+            )
+        query = query.order_by(Listing.price.asc()).limit(limit)
+        result = await self._db.execute(query)
+        return list(result.scalars().all())
 
     async def get_similar_listing_embeddings(
         self, listing_id: int, limit: int = 5

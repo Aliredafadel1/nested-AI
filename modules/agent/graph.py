@@ -15,16 +15,17 @@ import asyncio
 import hashlib
 import json
 import logging
-from typing import AsyncGenerator
+import re as _re
+from collections.abc import AsyncGenerator
 
-from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as aioredis
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.llm_router import call_llm, stream_llm
 from core.security import sanitize_llm_input
-from modules.agent.schemas import AgentState
-from modules.agent.repository import AgentRepository
 from modules.agent import tools as mcp
+from modules.agent.repository import AgentRepository
+from modules.agent.schemas import AgentState
 
 logger = logging.getLogger(__name__)
 
@@ -148,16 +149,25 @@ async def search_and_rank_node(state: AgentState, db: AsyncSession, redis) -> di
 
     # Enrich all listings in parallel instead of one-by-one
     enriched = await asyncio.gather(
-        *[_enrich_listing(l, intent, db, redis) for l in raw_listings[:10]]
+        *[_enrich_listing(lst, intent, db, redis) for lst in raw_listings[:10]]
     )
 
     errors: list[str] = list(state.get("errors", []))
-    for l in enriched:
-        note = l.get("commute", {}).get("note")
+    for lst in enriched:
+        note = lst.get("commute", {}).get("note")
         if note:
             errors.append(note)
 
-    return {"listings": list(enriched), "errors": errors}
+    # Remove near-certain scams (fraud_score >= 0.8) and sort safest-first
+    clean = [lst for lst in enriched if lst.get("fraud_score", 0) < 0.8]
+    if not clean:
+        # All listings are high-fraud — keep them but warn
+        clean = list(enriched)
+        errors.append("⚠️ All listings found have high fraud scores — proceed with extreme caution.")
+
+    clean.sort(key=lambda lst: lst.get("fraud_score", 0))
+
+    return {"listings": clean, "errors": errors}
 
 
 # ── Node 3: validate_results ──────────────────────────────────────────────────
@@ -177,48 +187,147 @@ def _should_retry(state: AgentState) -> bool:
 # + explain_and_respond (Node 6).  One Sonnet streaming call — first token
 # arrives within ~0.5 s of the search completing.
 
+_LEBANESE_WORDS = {
+    # 3arabizi numbers used as letters (appear mid-word, no boundary needed)
+    "3", "7", "2aw", "5ty", "6ab",
+    # Lebanese dialect words — matched as whole words only
+    "shu", "wein", "kifak", "bade", "badi", "bado", "badna",
+    "mnih", "ktir", "kter", "yalla", "halla2", "halla",
+    "ma3", "msh", "mish", "hayda", "hayde",
+    "la2", "yii", "eza", "shaqqa", "ijaar",
+    "3ande", "3ando", "3anna", "3am", "3a",
+    "ghali", "rkhis", "inno", "kif",
+}
+
+# 3arabizi: number appears between letters (e.g. "3ande", "b3eed", "7elo")
+_ARABIZI_PATTERN = _re.compile(r"[a-zA-Z][3725689][a-zA-Z]|^[3725689][a-zA-Z]|[a-zA-Z][3725689]$", _re.MULTILINE)
+
+
+_3ARABIZI_SYSTEM = """You are a housing assistant for Lebanese students in Beirut.
+
+LANGUAGE RULES (CRITICAL — never break these):
+1. Reply ONLY in Lebanese 3arabizi — Latin letters with Arabic digit-letters mixed in.
+   Digit substitutions: 3=ع, 2=أ/إ, 7=ح, 5=خ
+   Examples: "3ande" "shu" "la2" "ktir" "mni7" "halla2" "yalla" "ma3" "habibi" "inno" "bass"
+2. NEVER write Arabic script — Latin + digits ONLY.
+3. Mix in French/English naturally the way Lebanese people text online.
+4. Tone: casual WhatsApp friend — warm, direct, a bit playful.
+   Good style: "habibi, l-sha2a ta3 Hamra ktiir mni7a! bass l-kahraba hona b3iden shi 6 se3et..."
+
+FRAUD SCORE RULES (CRITICAL):
+- fraud_score: 0.0 = safe, 1.0 = scam.
+- NEVER recommend a listing with fraud_score >= 0.3.
+- fraud_score 0.97 = SCAM — warn clearly in 3arabizi.
+
+CONTENT RULES:
+- Always mention: kahraba (electricity hours), mouwaled (generator), may (water), internet.
+- Be honest about risks like a trusted friend."""
+
+
+def _detect_language(text: str) -> str:
+    """Return 'ar' for Arabic script, '3arabizi' for Lebanese Latin-digit dialect, 'en' otherwise."""
+    if any("؀" <= c <= "ۿ" for c in text):
+        return "ar"
+    # 3arabizi: digit used as a letter (surrounded by/adjacent to letters)
+    if _ARABIZI_PATTERN.search(text):
+        return "3arabizi"
+    # Whole-word Lebanese dialect vocabulary
+    words = set(text.lower().split())
+    if words & _LEBANESE_WORDS:
+        return "3arabizi"
+    return "en"
+
+
 async def stream_compare_and_respond_node(
     state: AgentState, db: AsyncSession, redis
 ) -> AsyncGenerator[str, None]:
     listings = state.get("listings", [])
     query    = state["query"]
+    lang     = state.get("language") or _detect_language(query)
 
     # No-match path
     if not listings:
-        yield _token("I couldn't find any listings matching your criteria. "
-                     "Try broadening your search area or adjusting your budget.")
+        if lang == "ar":
+            no_match = "لم أتمكن من العثور على شقق تطابق معاييرك. حاول توسيع نطاق البحث أو تعديل الميزانية."
+        elif lang == "3arabizi":
+            no_match = "walla ma l2et shi mwafe2 lal ma3ayir ta3ak. 7awel tkabber el ba7th aw 3addel el mizar."
+        else:
+            no_match = ("I couldn't find any listings matching your criteria. "
+                        "Try broadening your search area or adjusting your budget.")
+        yield _token(no_match)
         yield "data: [DONE]\n\n"
-        await _persist_session(state, "No matches found.", db, redis)
+        await _persist_session(state, no_match, db, redis)
         return
 
-    # Build context for the single streaming call
+    # Build context — annotate fraud score so model can't misread it
     top = listings[:3]
-    context = json.dumps(top, indent=2, default=str)
+    annotated = []
+    for lst in top:
+        score = lst.get("fraud_score", 0.0)
+        risk = "HIGH RISK SCAM" if score >= 0.7 else ("MEDIUM RISK" if score >= 0.4 else "SAFE")
+        annotated.append({**lst, "fraud_label": f"{score:.2f} = {risk}"})
+    context = json.dumps(annotated, indent=2, default=str)
     few_shot = state.get("intent", {}).get("_few_shot", "")
     errors_note = ""
     if state.get("errors"):
         errors_note = "\nNote: " + "; ".join(state["errors"])
 
-    prompt = sanitize_llm_input(
-        f"You are a helpful housing assistant for Lebanese students.\n"
-        f"A student asked: \"{query}\"\n\n"
-        f"Here are the top matching listings in Beirut:\n{context}\n"
-        f"{errors_note}\n"
-        f"{few_shot}\n"
-        "In one warm, conversational response:\n"
-        "1. Compare the listings on price, location, fraud score (lower = safer), and commute\n"
-        "2. Recommend the best option with a clear reason\n"
-        "3. Mention any caveats (generator cost, water, etc.) specific to the neighbourhood\n"
-        "Be direct and practical. 3-4 short paragraphs."
-    )
+    system_override: dict = {}
+
+    if lang == "ar":
+        task = "agent_compare_explain_ar"
+        prompt = sanitize_llm_input(
+            f"الطالب سألك (ممكن بلهجة لبنانية أو عربيزي أو عربي): \"{query}\"\n\n"
+            f"هيدي أحسن الشقق اللي لقيناها ببيروت:\n{context}\n"
+            f"{errors_note}\n"
+            f"{few_shot}\n"
+            "جاوبه بلهجة لبنانية طبيعية (مش فصحى):\n"
+            "١. قارن الشقق: السعر، المنطقة، نسبة الاحتيال (كلما قلّت أحسن)، ووقت التنقل\n"
+            "٢. قلو شو أحسن خيار وليش\n"
+            "٣. ذكّرو بأشياء مهمة متل ساعات الكهرباء، المولّد، والمي بالحي\n"
+            "خليك مباشر ومفيد. ٣-٤ فقرات قصيرة."
+        )
+    elif lang == "3arabizi":
+        task = "agent_compare_explain_ar"
+        system_override = {"system": _3ARABIZI_SYSTEM}
+        prompt = sanitize_llm_input(
+            f"El student sa2alak (bi 3arabizi): \"{query}\"\n\n"
+            f"Heydi a7san el sha2a lli l2eenalon bi Beirut:\n{context}\n"
+            f"{errors_note}\n"
+            f"{few_shot}\n"
+            "Jawbo bil 3arabizi (Latin + numbers, la Arabic script):\n"
+            "1. 2aren el sha2at: el price, el manate2, nesbet el fraud (l aqal a7san), wel wa2t lal jami3a\n"
+            "2. 2olo shu a7san khyar w leish\n"
+            "3. Zakaro bi kahraba, mouwaled, w may bil 7ay\n"
+            "Short w direct — 3-4 paragraphs."
+        )
+    else:
+        task = "agent_compare_explain"
+        prompt = sanitize_llm_input(
+            f"You are a helpful housing assistant for Lebanese students.\n"
+            f"A student asked: \"{query}\"\n\n"
+            f"Here are the top matching listings in Beirut:\n{context}\n"
+            f"{errors_note}\n"
+            f"{few_shot}\n"
+            "In one warm, conversational response:\n"
+            "1. Compare the listings on price, location, fraud score (lower = safer), and commute\n"
+            "2. Recommend the best option with a clear reason\n"
+            "3. Mention any caveats (generator cost, water, etc.) specific to the neighbourhood\n"
+            "Be direct and practical. 3-4 short paragraphs."
+        )
 
     full_parts: list[str] = []
     try:
-        for token in stream_llm("agent_compare_explain", prompt, max_tokens=700):
+        for token in stream_llm(task, prompt, max_tokens=700, **system_override):
             full_parts.append(token)
             yield _token(token)
     except Exception as e:
-        fallback = "I found some listings for you — please review the results above."
+        if lang == "ar":
+            fallback = "وجدت بعض الشقق — يرجى مراجعة النتائج أعلاه."
+        elif lang == "3arabizi":
+            fallback = "l2et shi sha2at — shuf el neta2ij faw2."
+        else:
+            fallback = "I found some listings for you — please review the results above."
         logger.error("stream_compare_and_respond | streaming failed: %s", e)
         full_parts = [fallback]
         yield _token(fallback)

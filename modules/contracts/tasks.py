@@ -20,6 +20,7 @@ MAX_CLAUSES_FOR_DEEP = 12        # Sonnet only sees up to this many flagged clau
 def analyze_contract_async(contract_id: int) -> None:
     """Analyze a PDF contract asynchronously. Triggered after upload."""
     import asyncio
+
     from core.config import settings
 
     logger.info("analyze_contract_async | contract_id=%s", contract_id)
@@ -37,8 +38,8 @@ def analyze_contract_async(contract_id: int) -> None:
                 return
 
             # Download PDF from MinIO
-            from core.storage import get_minio_client, Bucket
-            import io
+
+            from core.storage import Bucket, get_minio_client
             client = get_minio_client()
             try:
                 response = client.get_object(Bucket.CONTRACTS.value, contract.minio_key)
@@ -72,9 +73,9 @@ def analyze_contract_async(contract_id: int) -> None:
                 return
 
             await repo.update_status(contract_id, "analyzing")
-            from core.llm_router import call_llm
             import redis as redis_sync
-            from core.config import settings
+
+            from core.llm_router import call_llm
 
             # ── Tokenomics optimisation 1: hash cache ────────────────────────
             # If this exact contract text was analyzed before, return cached result.
@@ -185,10 +186,11 @@ def analyze_contract_async(contract_id: int) -> None:
 async def _ocr_pdf(file_bytes: bytes) -> str:
     """Convert PDF pages to images and run GPT-4o Vision OCR."""
     try:
-        import fitz
         import base64
+
+        import fitz
+
         from core.llm_router import _openai_client
-        import os
 
         doc = fitz.open(stream=file_bytes, filetype="pdf")
         all_text = []

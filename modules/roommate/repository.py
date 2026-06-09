@@ -1,8 +1,8 @@
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, text
 
 from modules.roommate.models import RoommateRequest
-from modules.roommate.schemas import MatchOut, DimensionScores
+from modules.roommate.schemas import DimensionScores, MatchOut
 
 
 class RoommateRepository:
@@ -76,6 +76,53 @@ class RoommateRepository:
             "dim_guests":       row[3],
             "dim_budget":       row[4],
         }
+
+    async def get_matches_fallback(self, current_user_id: int) -> list[MatchOut]:
+        """SQL-only fallback when embeddings are not yet computed.
+        Scores by field equality (sleep, study, cleanliness, guests) + budget overlap."""
+        sql = text("""
+            WITH me AS (
+                SELECT sleep_schedule, study_habits, cleanliness, guests,
+                       budget_min, budget_max
+                FROM student_profiles WHERE user_id = :uid
+            )
+            SELECT
+                sp.user_id,
+                ROUND(CAST((
+                    CASE WHEN sp.sleep_schedule = me.sleep_schedule THEN 0.2 ELSE 0.0 END
+                  + CASE WHEN sp.study_habits   = me.study_habits   THEN 0.2 ELSE 0.0 END
+                  + CASE WHEN sp.cleanliness    = me.cleanliness    THEN 0.2 ELSE 0.0 END
+                  + CASE WHEN sp.guests         = me.guests         THEN 0.2 ELSE 0.0 END
+                  + CASE WHEN GREATEST(sp.budget_min, me.budget_min)
+                              <= LEAST(sp.budget_max, me.budget_max) THEN 0.2 ELSE 0.0 END
+                ) AS numeric), 2) AS score,
+                CASE WHEN sp.sleep_schedule = me.sleep_schedule THEN 1.0 ELSE 0.0 END AS sleep,
+                CASE WHEN sp.study_habits   = me.study_habits   THEN 1.0 ELSE 0.0 END AS study,
+                CASE WHEN sp.cleanliness    = me.cleanliness    THEN 1.0 ELSE 0.0 END AS cleanliness,
+                CASE WHEN sp.guests         = me.guests         THEN 1.0 ELSE 0.0 END AS guests,
+                CASE WHEN GREATEST(sp.budget_min, me.budget_min)
+                          <= LEAST(sp.budget_max, me.budget_max) THEN 1.0 ELSE 0.0 END AS budget
+            FROM student_profiles sp, me
+            WHERE sp.user_id != :uid
+            ORDER BY score DESC
+            LIMIT 20
+        """)
+        result = await self._db.execute(sql, {"uid": current_user_id})
+        rows = result.mappings().all()
+        return [
+            MatchOut(
+                user_id=row["user_id"],
+                score=float(row["score"]),
+                dimensions=DimensionScores(
+                    sleep=float(row["sleep"]),
+                    study=float(row["study"]),
+                    cleanliness=float(row["cleanliness"]),
+                    guests=float(row["guests"]),
+                    budget=float(row["budget"]),
+                ),
+            )
+            for row in rows
+        ]
 
     async def target_student_exists(self, user_id: int) -> bool:
         result = await self._db.execute(

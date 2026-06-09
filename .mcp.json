@@ -17,6 +17,35 @@
         "d:\\capstone project"
       ],
       "description": "Full filesystem access scoped to the NestAI project root — read/write source files, migrations, seeds, specs, notebooks."
+    },
+    "nestai-git": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-git",
+        "--repository",
+        "d:\\capstone project"
+      ],
+      "description": "Git operations on the NestAI repo — read commit history, diffs, blame, branches, tags, and file change logs."
+    },
+    "nestai-fetch": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-fetch"
+      ],
+      "description": "HTTP fetch tool — call the NestAI REST API at http://localhost:8000, read external docs, or test endpoints without leaving the conversation."
+    },
+    "nestai-redis": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-redis"
+      ],
+      "env": {
+        "REDIS_HOST": "localhost",
+        "REDIS_PORT": "6379",
+        "REDIS_DB": "0",
+        "REDIS_PASSWORD": ""
+      },
+      "description": "Inspect live Redis state — session tokens, LLM cache keys, rate-limit counters, pub/sub channels, embed locks."
     }
   }
 }

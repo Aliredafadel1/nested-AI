@@ -1,11 +1,12 @@
 import uuid
+
 from fastapi import HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.storage import upload_file, Bucket, get_public_url
-from modules.housing.repository import HousingRepository
-from modules.housing.schemas import ListingCreate, ListingUpdate, ListingFilters
+from core.storage import Bucket, get_public_url, upload_file
 from modules.housing.models import Listing
+from modules.housing.repository import HousingRepository
+from modules.housing.schemas import ListingCreate, ListingFilters, ListingUpdate
 
 MAX_PHOTOS_PER_LISTING = 20
 
@@ -48,7 +49,7 @@ class HousingService:
         await self._repo.soft_delete(listing)
 
     async def upload_photo(self, listing_id: int, landlord_id: int, file: UploadFile) -> str:
-        listing = await self._get_own_listing(listing_id, landlord_id)
+        await self._get_own_listing(listing_id, landlord_id)
         count = await self._repo.count_photos(listing_id)
         if count >= MAX_PHOTOS_PER_LISTING:
             raise HTTPException(status_code=400, detail=f"Max {MAX_PHOTOS_PER_LISTING} photos per listing.")
@@ -89,6 +90,22 @@ class HousingService:
             min_price=f.get("min_price"),
             max_price=f.get("max_price"),
             neighbourhood_id=f.get("neighbourhood_id"),
+        )
+
+    async def filter_search(
+        self,
+        min_price: int | None = None,
+        max_price: int | None = None,
+        area_name: str | None = None,
+        bedrooms: int | None = None,
+        limit: int = 10,
+    ) -> list[Listing]:
+        return await self._repo.filter_search(
+            limit=limit,
+            min_price=min_price,
+            max_price=max_price,
+            area_name=area_name,
+            bedrooms=bedrooms,
         )
 
     async def get_neighbourhood_stats(self, neighbourhood_id: int) -> dict:

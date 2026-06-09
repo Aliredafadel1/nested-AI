@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, String, Text, TIMESTAMP
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import TIMESTAMP, Column, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
-from pgvector.sqlalchemy import Vector
+
 from core.database import Base
 
 

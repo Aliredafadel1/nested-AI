@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, Query, Request, UploadFile, File, status
+from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_db
-from core.security import get_current_user, require_landlord, require_student_role
-from modules.housing.schemas import ListingOut, ListingCreate, ListingUpdate, ListingFilters
+from core.security import require_landlord, require_student_role
+from modules.housing.schemas import ListingCreate, ListingFilters, ListingOut, ListingUpdate
 from modules.housing.service import HousingService
 
 router = APIRouter(prefix="/listings", tags=["listings"])

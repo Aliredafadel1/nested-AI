@@ -1,5 +1,5 @@
 import { useAuthStore } from "../stores/authStore"
-import { Navigate } from "react-router-dom"
+import { Navigate, Link } from "react-router-dom"
 import { useRoommateMatches } from "../api/roommate"
 import { MatchCard } from "../components/roommate/MatchCard"
 import { LoadingSpinner } from "../components/shared/LoadingSpinner"
@@ -14,13 +14,25 @@ export function RoommatePage() {
   if (isLoading) return <LoadingSpinner />
 
   if (error) {
-    const is422 = (error as Error).message.includes("422") || (error as Error).message.includes("onboarding")
+    const is422 = (error as Error).message.includes("422") || (error as Error).message.includes("onboarding") || (error as Error).message.includes("embedding")
     return (
-      <EmptyState
-        icon="📝"
-        title={is422 ? "Complete onboarding first" : "Could not load matches"}
-        description={is422 ? "Finish your profile to see roommate matches." : "Please try again later."}
-      />
+      <div className="text-center py-16">
+        <div className="text-4xl mb-4">{is422 ? "📝" : "⚠️"}</div>
+        <h2 className="text-lg font-semibold mb-2">{is422 ? "Profile not ready yet" : "Could not load matches"}</h2>
+        <p className="text-sm text-gray-500 mb-6">
+          {is422
+            ? "Set your preferences so we can find compatible roommates for you."
+            : "Please try again later."}
+        </p>
+        {is422 && (
+          <Link
+            to="/onboarding"
+            className="inline-block px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary/90 transition"
+          >
+            Complete your profile →
+          </Link>
+        )}
+      </div>
     )
   }
 

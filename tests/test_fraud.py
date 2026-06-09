@@ -1,7 +1,6 @@
 """Integration tests for Phase 2b: fraud detection + area intelligence.
 Runs against real PostgreSQL + Redis (no mocks). Uses sync TestClient.
 """
-import pytest
 from starlette.testclient import TestClient
 
 from app.main import app

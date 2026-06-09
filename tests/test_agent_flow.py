@@ -2,7 +2,7 @@
 Uses sync TestClient (streaming via iter_lines). BGE-M3 not required for basic flow tests.
 """
 import uuid
-import pytest
+
 from starlette.testclient import TestClient
 
 from app.main import app
@@ -41,7 +41,7 @@ def test_chat_returns_sse_stream():
             if "[DONE]" in line:
                 break
     # Should have received at least one data line and a [DONE]
-    data_lines = [l for l in lines if l.startswith("data:")]
+    data_lines = [line for line in lines if line.startswith("data:")]
     assert len(data_lines) >= 1
 
 

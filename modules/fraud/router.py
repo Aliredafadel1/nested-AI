@@ -1,11 +1,11 @@
+import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-import redis.asyncio as aioredis
 
 from core.database import get_db
 from core.redis import get_redis_dep
-from modules.fraud.service import FraudService
 from modules.fraud.schemas import FraudReportOut
+from modules.fraud.service import FraudService
 
 router = APIRouter(prefix="/fraud", tags=["fraud"])
 

@@ -3,7 +3,7 @@ Runs against real PostgreSQL + Redis containers (no mocks).
 Uses Starlette TestClient (sync) to avoid asyncio event-loop conflicts with asyncpg.
 """
 import io
-import pytest
+
 from starlette.testclient import TestClient
 
 from app.main import app
@@ -129,7 +129,7 @@ def test_soft_delete_listing():
     assert resp.status_code == 204
 
     get_resp = client.get("/listings")
-    ids = [l["id"] for l in get_resp.json()]
+    ids = [item["id"] for item in get_resp.json()]
     assert listing_id not in ids
 
 
@@ -200,7 +200,7 @@ def test_save_and_retrieve_listing():
 
     saved = client.get("/listings/saved", headers={"Authorization": f"Bearer {s_token}"})
     assert saved.status_code == 200
-    ids = [l["id"] for l in saved.json()]
+    ids = [item["id"] for item in saved.json()]
     assert listing_id in ids
 
 

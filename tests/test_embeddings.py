@@ -5,8 +5,8 @@ BGE-M3 unit tests are skipped unless the model cache is present (run in worker-l
 Celery-dependent tests inject fake 1024-dim vectors directly into the DB so they run
 without needing a Celery worker — this tests the full API/SQL chain.
 """
-import os
 import asyncio
+import os
 
 import asyncpg
 import pytest
@@ -109,7 +109,6 @@ def _get_user_id(email: str) -> int:
 )
 def test_embed_text_dimension():
     """embed_text returns exactly 1024-dim vector."""
-    import math
     from core.embeddings import _load_model, embed_text
     _load_model()
     vec = embed_text("test listing in Hamra Beirut")
@@ -123,6 +122,7 @@ def test_embed_text_dimension():
 def test_embed_text_normalized():
     """Normalized vector has magnitude ≈ 1.0."""
     import math
+
     from core.embeddings import _load_model, embed_text
     _load_model()
     vec = embed_text("student looking for quiet studio near AUB")
@@ -276,7 +276,7 @@ def test_opposite_sleep_low_score():
 def test_send_roommate_request():
     """POST /roommate/requests → 201 with status pending."""
     token_a = _register_login("req_a@test.com")
-    token_b = _register_login("req_b@test.com")
+    _register_login("req_b@test.com")
     b_id = _get_user_id("req_b@test.com")
 
     resp = client.post("/roommate/requests",

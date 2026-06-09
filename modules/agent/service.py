@@ -3,11 +3,11 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
+import redis.asyncio as aioredis
 from fastapi import HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
-import redis.asyncio as aioredis
 
 from core.redis import RedisKeys
 from modules.agent.repository import AgentRepository
@@ -46,6 +46,8 @@ class AgentService:
                 await repo.create_session(user_id, session_id)
 
         state["query"] = req.query
+        if req.language in ("ar", "en", "3arabizi"):
+            state["language"] = req.language
 
         graph = build_graph(self._db, self._redis)
         async for chunk in graph(state):
@@ -53,6 +55,7 @@ class AgentService:
 
     async def transcribe(self, file: UploadFile) -> str:
         import os
+
         from core.llm_router import transcribe_audio
 
         filename = file.filename or "audio.webm"

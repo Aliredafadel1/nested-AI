@@ -15,11 +15,13 @@ logger = logging.getLogger(__name__)
 def index_rag_chunk(chunk_id: int) -> None:
     """Embed a rag_chunk row with BGE-M3 and store the vector."""
     import asyncio
+
     from core.config import settings
 
     async def _run():
-        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
         from sqlalchemy import text
+        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
         from core.embeddings import embed_text
 
         engine = create_async_engine(settings.DATABASE_URL)
@@ -51,11 +53,12 @@ def index_rag_chunk(chunk_id: int) -> None:
 def seed_rag_embeddings() -> None:
     """Embed all rag_chunks where embedding IS NULL. Run once after seed SQL."""
     import asyncio
+
     from core.config import settings
 
     async def _run():
-        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
         from sqlalchemy import text
+        from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
         engine = create_async_engine(settings.DATABASE_URL)
         async with AsyncSession(engine) as db:

@@ -31,7 +31,22 @@ export function OnboardingPage() {
   })
 
   useEffect(() => {
-    getMe().then((me) => { if (me.profile?.university_id) navigate("/listings") }).catch(() => {})
+    getMe().then((me) => {
+      if (me.profile) {
+        setData((d) => ({
+          ...d,
+          university_id:  me.profile.university_id ?? d.university_id,
+          budget_min:     me.profile.budget_min     ?? d.budget_min,
+          budget_max:     me.profile.budget_max     ?? d.budget_max,
+          sleep_schedule: me.profile.sleep_schedule ?? d.sleep_schedule,
+          study_habits:   me.profile.study_habits   ?? d.study_habits,
+          cleanliness:    me.profile.cleanliness    ?? d.cleanliness,
+          guests:         me.profile.guests         ?? d.guests,
+          language:       me.profile.language       ?? d.language,
+          priorities:     me.profile.priorities     ?? d.priorities,
+        }))
+      }
+    }).catch(() => {})
   }, [])
 
   const set = (k: string, v: any) => setData((d) => ({ ...d, [k]: v }))

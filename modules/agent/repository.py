@@ -5,7 +5,7 @@ import json
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from modules.agent.models import AgentSession, StudentMemory, RAGChunk
+from modules.agent.models import AgentSession, StudentMemory
 
 
 class AgentRepository:
@@ -28,7 +28,7 @@ class AgentRepository:
     async def update_session(self, session_id: str, history: list, summary: str) -> None:
         await self._db.execute(
             text(
-                "UPDATE agent_sessions SET history = :history::jsonb, summary = :summary, "
+                "UPDATE agent_sessions SET history = CAST(:history AS jsonb), summary = :summary, "
                 "updated_at = NOW() WHERE session_id = :sid"
             ),
             {

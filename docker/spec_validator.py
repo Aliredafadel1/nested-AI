@@ -2,6 +2,7 @@
 Exits 0 on success, 1 on any violation.
 """
 import sys
+
 import yaml
 
 REQUIRED_MODULE_FIELDS = {"description", "tables", "endpoints"}

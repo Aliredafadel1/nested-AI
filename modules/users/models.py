@@ -1,7 +1,7 @@
-from sqlalchemy import String, Integer, Boolean, Numeric, ForeignKey, TIMESTAMP, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import JSONB
 from pgvector.sqlalchemy import Vector
+from sqlalchemy import TIMESTAMP, Boolean, ForeignKey, Integer, Numeric, String, func
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database import Base
 

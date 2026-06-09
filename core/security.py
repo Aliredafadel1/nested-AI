@@ -1,10 +1,10 @@
-import re
 import hashlib
-from datetime import datetime, timedelta, timezone
+import re
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from fastapi import Depends, HTTPException, Request, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
@@ -60,8 +60,8 @@ def verify_password(plain: str, hashed: str) -> bool:
 # ── JWT ───────────────────────────────────────────────────────────────────────
 
 def create_access_token(subject: int, role: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    payload = {"sub": str(subject), "role": role, "exp": expire, "iat": datetime.now(timezone.utc)}
+    expire = datetime.now(UTC) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    payload = {"sub": str(subject), "role": role, "exp": expire, "iat": datetime.now(UTC)}
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
@@ -82,8 +82,8 @@ def hash_refresh_token(raw: str) -> str:
 def decode_access_token(token: str) -> dict[str, Any]:
     try:
         return jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token.")
+    except JWTError as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token.") from e
 
 
 # ── Dependencies ──────────────────────────────────────────────────────────────
@@ -131,26 +131,25 @@ class RateLimitMiddleware:
         if scope["type"] == "http":
             from starlette.requests import Request as StarletteRequest
             from starlette.responses import JSONResponse
-            from core.redis import get_async_redis, RedisKeys
+
+            from core.redis import RedisKeys, get_async_redis
 
             request = StarletteRequest(scope, receive)
             ip = request.client.host if request.client else "unknown"
             path = request.url.path
             key = RedisKeys.rate_ip(ip, path)
 
+            # Shared pool — no aclose() needed
             redis = get_async_redis()
-            try:
-                count = await redis.incr(key)
-                if count == 1:
-                    await redis.expire(key, 60)
-                if count > self.rpm:
-                    response = JSONResponse(
-                        {"detail": "Rate limit exceeded. Try again in a minute."},
-                        status_code=429,
-                    )
-                    await response(scope, receive, send)
-                    return
-            finally:
-                await redis.aclose()
+            count = await redis.incr(key)
+            if count == 1:
+                await redis.expire(key, 60)
+            if count > self.rpm:
+                response = JSONResponse(
+                    {"detail": "Rate limit exceeded. Try again in a minute."},
+                    status_code=429,
+                )
+                await response(scope, receive, send)
+                return
 
         await self.app(scope, receive, send)

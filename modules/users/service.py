@@ -1,14 +1,25 @@
 from datetime import timedelta
 
+import redis.asyncio as aioredis
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-import redis.asyncio as aioredis
 
-from core.security import hash_password, verify_password, create_access_token, create_refresh_token, hash_refresh_token
 from core.config import settings
 from core.redis import RedisKeys
+from core.security import (
+    create_access_token,
+    create_refresh_token,
+    hash_password,
+    hash_refresh_token,
+    verify_password,
+)
 from modules.users.repository import UserRepository
-from modules.users.schemas import RegisterRequest, LoginRequest, OnboardingRequest, TokenResponse  # noqa: F401
+from modules.users.schemas import (  # noqa: F401
+    LoginRequest,
+    OnboardingRequest,
+    RegisterRequest,
+    TokenResponse,
+)
 
 
 class UserService:
@@ -83,6 +94,7 @@ class UserService:
         access_token = create_access_token(user.id, user.role)
         raw_refresh, hashed_refresh = create_refresh_token(user.id)
         from datetime import timedelta
+
         from core.config import settings
         from core.redis import RedisKeys
         await self._redis.setex(
@@ -93,7 +105,7 @@ class UserService:
         return TokenResponse(access_token=access_token, role=user.role), raw_refresh
 
     async def get_me(self, user_id: int, role: str):
-        from modules.users.schemas import UserMeOut, StudentProfileOut
+        from modules.users.schemas import StudentProfileOut, UserMeOut
         user = await self._repo.get_by_id(user_id)
         if not user:
             from fastapi import HTTPException

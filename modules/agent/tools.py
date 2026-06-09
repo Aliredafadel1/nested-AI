@@ -18,28 +18,34 @@ logger = logging.getLogger(__name__)
 # ── Tool 1: search_listings ────────────────────────────────────────────────────
 
 async def search_listings(db, intent: dict) -> list[dict]:
-    """Semantic search on listings using BGE-M3 embedding of the intent query."""
+    """Semantic search on listings. Falls back to SQL filter search when BGE-M3 is unavailable."""
     from core.embeddings import embed_text
     from modules.housing.service import HousingService
+
+    svc = HousingService(db)
 
     query_text = _intent_to_query_text(intent)
     try:
         embedding = embed_text(query_text)
+        filters = {}
+        if intent.get("min_price"):
+            filters["min_price"] = intent["min_price"]
+        if intent.get("max_price"):
+            filters["max_price"] = intent["max_price"]
+        if intent.get("neighbourhood_id"):
+            filters["neighbourhood_id"] = intent["neighbourhood_id"]
+        listings = await svc.semantic_search(embedding, filters, limit=10)
     except NotImplementedError:
-        logger.warning("search_listings | BGE-M3 not loaded — returning empty")
-        return []
+        logger.info("search_listings | BGE-M3 unavailable — using SQL filter fallback")
+        listings = await svc.filter_search(
+            min_price=intent.get("min_price"),
+            max_price=intent.get("max_price"),
+            area_name=intent.get("area"),
+            bedrooms=intent.get("bedrooms"),
+            limit=10,
+        )
 
-    filters = {}
-    if intent.get("min_price"):
-        filters["min_price"] = intent["min_price"]
-    if intent.get("max_price"):
-        filters["max_price"] = intent["max_price"]
-    if intent.get("neighbourhood_id"):
-        filters["neighbourhood_id"] = intent["neighbourhood_id"]
-
-    svc = HousingService(db)
-    listings = await svc.semantic_search(embedding, filters, limit=10)
-    return [_listing_to_dict(l) for l in listings]
+    return [_listing_to_dict(lst) for lst in listings]
 
 
 # ── Tool 2: calculate_commute ──────────────────────────────────────────────────
@@ -108,8 +114,8 @@ async def get_roommate_matches(db, user_id: int) -> list[dict]:
 # ── Tool 6: estimate_cost ──────────────────────────────────────────────────────
 
 async def estimate_cost(db, redis, rent: int, neighbourhood_id: int, university_id: int | None) -> dict:
-    from modules.estimator.service import EstimatorService
     from modules.estimator.schemas import EstimateRequest
+    from modules.estimator.service import EstimatorService
     try:
         svc = EstimatorService(db, redis)
         req = EstimateRequest(rent=rent, neighbourhood_id=neighbourhood_id, university_id=university_id)

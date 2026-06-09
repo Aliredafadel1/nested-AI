@@ -1,5 +1,6 @@
 from pydantic import BaseModel, computed_field
-from core.features import livability_score, student_score, electricity_reliability
+
+from core.features import electricity_reliability, livability_score, student_score
 
 
 class NeighborhoodOut(BaseModel):

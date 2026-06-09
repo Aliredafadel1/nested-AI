@@ -1,6 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query"
-import { apiJson, BASE } from "./client"
-import { useAuthStore } from "../stores/authStore"
+import { apiJson, apiFetch } from "./client"
 
 export interface AreaScores {
   id: number; name: string; name_ar?: string | null
@@ -15,17 +14,12 @@ export async function streamChat(
   onDone: () => void,
   onError: (e: Error) => void,
   onProgress?: (text: string) => void,
+  language?: "ar" | "en",
 ) {
-  const token = useAuthStore.getState().accessToken
   try {
-    const res = await fetch(`${BASE}/agent/chat`, {
+    const res = await apiFetch("/agent/chat", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      credentials: "include",
-      body: JSON.stringify({ query, session_id: sessionId }),
+      body: JSON.stringify({ query, session_id: sessionId, language: language ?? null }),
     })
     if (!res.ok || !res.body) { onError(new Error(`HTTP ${res.status}`)); return }
     const reader = res.body.getReader()
