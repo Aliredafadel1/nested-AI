@@ -67,7 +67,7 @@ def test_area_scores_hamra():
     assert resp.status_code == 200
     data = resp.json()
     assert data["name"] == "Hamra"
-    assert data["electricity_hours"] is not None
+    assert data["electricity"] is not None
     assert data["generator_cost"] is not None
     for key in ["internet", "transport", "safety", "student_vibe"]:
         assert key in data
