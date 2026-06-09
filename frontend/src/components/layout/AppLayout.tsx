@@ -14,12 +14,12 @@ export function AppLayout() {
   useEffect(() => {
     if (!accessToken) return
     const disconnect = connectSSE((notif) => {
-      addNew({ ...notif, read: false } as any)
+      addNew({ ...notif, read: false })
       increment()
       toast(`📬 ${notif.type}`, { duration: 4000 })
     })
     return disconnect
-  }, [accessToken])
+  }, [accessToken, addNew, increment])
 
   if (!accessToken) return <Navigate to="/login" replace />
 

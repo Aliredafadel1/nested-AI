@@ -31,8 +31,8 @@ export function RegisterPage() {
       setAuth(tok.access_token, { id: me.id, email: me.email, role: me.role })
       if (tok.role === "landlord") { navigate("/dashboard"); return }
       navigate("/onboarding")
-    } catch (e: any) {
-      toast.error(e.message || "Registration failed")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Registration failed")
     } finally { setLoading(false) }
   }
 

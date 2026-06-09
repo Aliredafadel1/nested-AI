@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useAuthStore } from "../stores/authStore"
 import { Navigate } from "react-router-dom"
-import { useListings, useListingStats, useCreateListing } from "../api/listings"
+import { useListings, useListingStats, useCreateListing, type Listing } from "../api/listings"
 import { useCalculateCost } from "../api/estimator"
 import { LoadingSpinner } from "../components/shared/LoadingSpinner"
 import { EmptyState } from "../components/shared/EmptyState"
@@ -13,7 +13,7 @@ const HOODS = [
   { id: 7, name: "Ras Beirut" }, { id: 8, name: "Dekwaneh" },
 ]
 
-function ListingRow({ listing }: { listing: any }) {
+function ListingRow({ listing }: { listing: Listing }) {
   const { data: stats } = useListingStats(listing.id)
   return (
     <tr className="border-b hover:bg-gray-50">
@@ -32,16 +32,15 @@ function ListingRow({ listing }: { listing: any }) {
 
 export function LandlordDashboard() {
   const { user } = useAuthStore()
-  if (user?.role !== "landlord") return <Navigate to="/listings" replace />
-
   const { data: listings = [], isLoading } = useListings()
   const createListing = useCreateListing()
   const calcCost = useCalculateCost()
-
   const [showNew, setShowNew] = useState(false)
   const [newData, setNewData] = useState({ title: "", price: 500, bedrooms: 1, neighbourhood_id: 1, description: "" })
   const [estRent, setEstRent] = useState(500)
   const [estHood, setEstHood] = useState(1)
+
+  if (user?.role !== "landlord") return <Navigate to="/listings" replace />
 
   const myListings = listings
 

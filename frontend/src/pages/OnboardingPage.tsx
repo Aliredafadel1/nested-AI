@@ -24,7 +24,7 @@ export function OnboardingPage() {
   useAuthStore()
   const [step, setStep] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [data, setData] = useState<Record<string, any>>({
+  const [data, setData] = useState<Record<string, unknown>>({
     university_id: UNIS[0].id, budget_min: 300, budget_max: 700,
     sleep_schedule: "flexible", study_habits: "moderate", cleanliness: "medium",
     guests: "sometimes", language: "english", priorities: [],
@@ -49,14 +49,14 @@ export function OnboardingPage() {
     }).catch(() => {})
   }, [])
 
-  const set = (k: string, v: any) => setData((d) => ({ ...d, [k]: v }))
+  const set = (k: string, v: unknown) => setData((d) => ({ ...d, [k]: v }))
 
   const submit = async () => {
     setLoading(true)
     try {
       await onboard(data)
       navigate("/listings")
-    } catch (e: any) { toast.error(e.message || "Failed to save profile") }
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed to save profile") }
     finally { setLoading(false) }
   }
 

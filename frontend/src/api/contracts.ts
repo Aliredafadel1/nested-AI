@@ -22,7 +22,9 @@ export function useContract(id: number | null) {
     queryKey: ["contract", id],
     queryFn: () => apiJson<Contract>(`/contracts/${id}`),
     enabled: id !== null,
-    refetchInterval: (query: any) =>
-      ["complete", "failed"].includes(query?.state?.data?.status) ? false : 3000,
+    refetchInterval: (query) => {
+      const status = (query.state.data as Contract | undefined)?.status
+      return ["complete", "failed"].includes(status ?? "") ? false : 3000
+    },
   })
 }

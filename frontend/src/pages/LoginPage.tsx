@@ -31,8 +31,8 @@ export function LoginPage() {
       if (tok.role === "landlord") { navigate("/dashboard"); return }
       if (me.profile?.university_id) { navigate("/listings"); return }
       navigate("/onboarding")
-    } catch (e: any) {
-      toast.error(e.message || "Login failed")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Login failed")
     } finally { setLoading(false) }
   }
 
@@ -45,8 +45,8 @@ export function LoginPage() {
       setAuth(tok.access_token, { id: me.id, email: me.email, role: me.role })
       toast.success("Welcome, Jawad! 👋")
       navigate("/listings")
-    } catch (e: any) {
-      toast.error(e.message || "Demo login failed")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Demo login failed")
     } finally { setDemoLoading(false) }
   }
 

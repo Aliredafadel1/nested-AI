@@ -37,7 +37,7 @@ export function ChatPanel() {
         text, sid!,
         (token) => { setProgress(null); updateLastAgentMessage(token) },
         () => { setProgress(null); finalizeLastMessage(); setStreaming(false) },
-        async (_err) => {
+        async () => {
           if (!retried) {
             retried = true
             toast("Connection lost — retrying…")

@@ -7,9 +7,9 @@ import { EmptyState } from "../components/shared/EmptyState"
 
 export function RoommatePage() {
   const { user } = useAuthStore()
-  if (user?.role !== "student") return <Navigate to="/listings" replace />
-
   const { data: matches, isLoading, error } = useRoommateMatches()
+
+  if (user?.role !== "student") return <Navigate to="/listings" replace />
 
   if (isLoading) return <LoadingSpinner />
 

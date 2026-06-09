@@ -8,16 +8,16 @@ import { LoadingSpinner } from "../components/shared/LoadingSpinner"
 
 export function ContractsPage() {
   const { user } = useAuthStore()
-  if (user?.role !== "student") return <Navigate to="/listings" replace />
-
   const [contractId, setContractId] = useState<number | null>(null)
   const upload = useUploadContract()
   const { data: contract } = useContract(contractId)
 
+  if (user?.role !== "student") return <Navigate to="/listings" replace />
+
   const handleFile = (file: File) => {
     upload.mutate(file, {
       onSuccess: (data) => setContractId(data.contract_id),
-      onError: (e: any) => alert(e.message || "Upload failed"),
+      onError: (e: Error) => alert(e.message || "Upload failed"),
     })
   }
 
