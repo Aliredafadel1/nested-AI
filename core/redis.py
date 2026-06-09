@@ -1,3 +1,4 @@
+import os
 from collections.abc import AsyncGenerator
 
 import redis as syncredis
@@ -5,9 +6,12 @@ import redis.asyncio as aioredis
 
 from core.config import settings
 
-# ── Shared connection pool (created once at import time) ─────────────────────
-# All callers share this pool — no per-request connection setup overhead.
-_pool = aioredis.ConnectionPool.from_url(
+_TESTING = os.environ.get("ENVIRONMENT") == "testing"
+
+# ── Shared connection pool (production) ──────────────────────────────────────
+# In testing we skip the shared pool entirely: each request gets a fresh client
+# so connections never bind to a stale event loop (same fix as NullPool for PG).
+_pool: aioredis.ConnectionPool | None = None if _TESTING else aioredis.ConnectionPool.from_url(
     settings.REDIS_URL,
     decode_responses=True,
     max_connections=20,
@@ -15,13 +19,22 @@ _pool = aioredis.ConnectionPool.from_url(
 
 
 def get_async_redis() -> aioredis.Redis:
-    """Return a client backed by the shared pool. Do NOT call aclose() on it."""
+    """Return an async Redis client. In testing, a fresh client per call."""
+    if _TESTING:
+        return aioredis.from_url(settings.REDIS_URL, decode_responses=True)
     return aioredis.Redis(connection_pool=_pool)
 
 
 async def get_redis_dep() -> AsyncGenerator[aioredis.Redis, None]:
-    """FastAPI dependency — yields shared-pool client (no teardown needed)."""
-    yield aioredis.Redis(connection_pool=_pool)
+    """FastAPI dependency. In testing, yields a fresh client and closes it."""
+    if _TESTING:
+        client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+        try:
+            yield client
+        finally:
+            await client.aclose()
+    else:
+        yield aioredis.Redis(connection_pool=_pool)
 
 
 def get_sync_redis() -> syncredis.Redis:
