@@ -1,0 +1,172 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Job 1: static code quality gates (fast, no services needed) ─────────────
+  lint:
+    name: Code quality gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No cross-module repository imports
+        run: |
+          # Each module's repository.py must only be imported within that module
+          BAD=$(grep -rn "from modules\." --include="*.py" . \
+            | grep "\.repository import" \
+            | grep -v "^\.\/modules\/\([^/]*\)\/.*from modules\.\1\.repository" \
+            | grep -v "^Binary" || true)
+          if [ -n "$BAD" ]; then
+            echo "❌ Cross-module repository imports detected:"
+            echo "$BAD"
+            exit 1
+          fi
+          echo "✅ No cross-module repository imports"
+
+      - name: No direct LLM SDK calls outside llm_router.py
+        run: |
+          BAD=$(grep -rn \
+            -e "openai\.ChatCompletion" \
+            -e "from openai import OpenAI" \
+            -e "import anthropic" \
+            --include="*.py" . \
+            | grep -v "core/llm_router.py" \
+            | grep -v "^Binary" || true)
+          if [ -n "$BAD" ]; then
+            echo "❌ Direct LLM SDK calls found outside core/llm_router.py:"
+            echo "$BAD"
+            exit 1
+          fi
+          echo "✅ All LLM calls go through llm_router.py"
+
+  # ── Job 2: integration tests (real PostgreSQL + Redis + MinIO) ───────────────
+  test:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    needs: lint
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: nestai
+          POSTGRES_PASSWORD: nestai
+          POSTGRES_DB: nestai
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nestai"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://nestai:nestai@localhost:5432/nestai
+      REDIS_URL: redis://localhost:6379/0
+      CELERY_BROKER_URL: redis://localhost:6379/1
+      CELERY_RESULT_BACKEND: redis://localhost:6379/2
+      MINIO_ENDPOINT: localhost:9000
+      MINIO_ROOT_USER: nestai
+      MINIO_ROOT_PASSWORD: nestai_secret
+      MINIO_SECURE: "false"
+      JWT_SECRET: ci-test-secret-do-not-use-in-prod
+      ENVIRONMENT: testing
+      # Fake keys — LLM-dependent tests are skipped in CI
+      ANTHROPIC_API_KEY: sk-ant-fake-ci-key
+      GROQ_API_KEY: gsk_fake_ci_key
+      OPENAI_API_KEY: sk-fake-ci-key
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Start MinIO
+        run: |
+          docker run -d \
+            --name minio \
+            -p 9000:9000 \
+            -e MINIO_ROOT_USER=nestai \
+            -e MINIO_ROOT_PASSWORD=nestai_secret \
+            minio/minio server /data
+          # Wait for MinIO to be ready
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:9000/minio/health/live && break
+            sleep 2
+          done
+
+      - name: Create MinIO buckets
+        run: |
+          python3 - <<'EOF'
+          from minio import Minio
+          c = Minio("localhost:9000", access_key="nestai", secret_key="nestai_secret", secure=False)
+          for b in ["listing-photos", "contracts", "audio", "avatars", "sftp-uploads"]:
+              if not c.bucket_exists(b):
+                  c.make_bucket(b)
+          print("Buckets ready:", ["listing-photos", "contracts", "audio", "avatars", "sftp-uploads"])
+          EOF
+
+      - name: Apply DB schema
+        run: PGPASSWORD=nestai psql -h localhost -U nestai -d nestai -f migrations/init.sql
+
+      - name: Apply incremental migrations
+        run: |
+          PGPASSWORD=nestai psql -h localhost -U nestai -d nestai \
+            -f migrations/002_improvements.sql || true
+          PGPASSWORD=nestai psql -h localhost -U nestai -d nestai \
+            -f migrations/002a_add_profile_dim_vectors.sql || true
+
+      - name: Load seed data
+        run: |
+          PGPASSWORD=nestai psql -h localhost -U nestai -d nestai -f seed/listings.sql
+
+      - name: Run listing & auth tests
+        run: pytest tests/test_api_listings.py -v --tb=short
+
+      - name: Run fraud tests
+        run: pytest tests/test_fraud.py -v --tb=short
+
+      - name: Run contract tests
+        run: pytest tests/test_contracts.py -v --tb=short
+
+  # ── Job 3: spec validation ───────────────────────────────────────────────────
+  spec:
+    name: Spec validator
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Validate module specs
+        run: python docker/spec_validator.py
