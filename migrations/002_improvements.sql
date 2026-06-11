@@ -1,5 +1,5 @@
--- Migration 002: RLHF feedback + IP fraud tracking
--- Idempotent — safe to run multiple times
+﻿-- Migration 002: RLHF feedback + IP fraud tracking
+-- Idempotent â€” safe to run multiple times
 
 -- RLHF: store per-turn user ratings on agent responses
 CREATE TABLE IF NOT EXISTS response_feedback (

@@ -19,10 +19,12 @@ export function LoginPage() {
   const { setAuth } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [demoLoading, setDemoLoading] = useState(false)
+  const [loginFailed, setLoginFailed] = useState(false)
   const { register, handleSubmit, formState: { errors } } = useForm<Form>({ resolver: zodResolver(schema) })
 
   const onSubmit = async (data: Form) => {
     setLoading(true)
+    setLoginFailed(false)
     try {
       const tok = await login(data)
       setAuth(tok.access_token, { id: 0, email: data.email, role: tok.role })
@@ -33,6 +35,7 @@ export function LoginPage() {
       navigate("/onboarding")
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Login failed")
+      setLoginFailed(true)
     } finally { setLoading(false) }
   }
 
@@ -89,6 +92,16 @@ export function LoginPage() {
         <button type="submit" disabled={loading} className="w-full py-2.5 bg-primary text-white rounded-lg font-medium disabled:opacity-60">
           {loading ? "Signing in…" : "Sign in"}
         </button>
+
+        {loginFailed && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
+            <p className="text-sm text-red-700 mb-1">Wrong email or password?</p>
+            <Link to="/forgot-password" className="text-sm font-semibold text-red-600 hover:underline">
+              Reset your password →
+            </Link>
+          </div>
+        )}
+
         <p className="text-center text-sm text-gray-500">
           No account? <Link to="/register" className="text-primary hover:underline">Register</Link>
         </p>

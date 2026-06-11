@@ -1,6 +1,7 @@
 from celery import Celery
 from celery.schedules import crontab
 
+import core.embeddings  # noqa: F401 — registers worker_process_init signal before fork
 from core.config import settings
 
 celery_app = Celery(

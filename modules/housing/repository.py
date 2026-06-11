@@ -147,7 +147,7 @@ class HousingRepository:
             f"""
             SELECT l.id FROM listings l
             WHERE {where_clause}
-            ORDER BY l.embedding <=> :vec::vector
+            ORDER BY l.embedding <=> CAST(:vec AS vector)
             LIMIT :limit
             """
         )

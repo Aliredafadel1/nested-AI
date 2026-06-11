@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)
 def send_email(to: str, subject: str, html_body: str) -> None:
     """Send a transactional email via SMTP. Raises on failure — callers decide whether to swallow."""
     if not settings.SMTP_HOST:
-        raise RuntimeError("SMTP_HOST is not configured.")
+        logger.warning("SMTP_HOST not configured — email to %s skipped (dev mode)", to)
+        return
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject

@@ -96,7 +96,11 @@ services:
   worker-high:
     image: nestai-api
     env_file: ../.env
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
     command: celery -A core.celery_config.celery_app worker -Q nestai:high -c 4 --loglevel=info
+    volumes:
+      - ..:/app
     depends_on:
       - db
       - redis
@@ -105,20 +109,24 @@ services:
   worker-medium:
     image: nestai-api
     env_file: ../.env
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
     command: celery -A core.celery_config.celery_app worker -Q nestai:medium -c 2 --loglevel=info
+    volumes:
+      - ..:/app
     depends_on:
       - db
       - redis
     restart: unless-stopped
 
   worker-low:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.worker
-    image: nestai-worker
+    image: nestai-api
     env_file: ../.env
-    command: celery -A core.celery_config.celery_app worker -Q nestai:low -c 1 --loglevel=info --max-memory-per-child=1000000
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+    command: celery -A core.celery_config.celery_app worker -Q nestai:low -c 1 --loglevel=info --max-memory-per-child=4000000
     volumes:
+      - ..:/app
       - bge_model_cache:/root/.cache/huggingface
     depends_on:
       - db
@@ -129,6 +137,8 @@ services:
     image: nestai-api
     env_file: ../.env
     command: celery -A core.celery_config.celery_app beat --loglevel=info
+    volumes:
+      - ..:/app
     depends_on:
       - db
       - redis

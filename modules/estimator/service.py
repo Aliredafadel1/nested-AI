@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 
 import httpx
 import redis.asyncio as aioredis
@@ -153,5 +154,14 @@ class EstimatorService:
                 duration_seconds = data["routes"][0]["duration"]
                 return int(duration_seconds / 60)
         except Exception as e:
-            logger.warning("estimator._get_commute | OSRM unavailable: %s", e)
-            return None
+            logger.warning("estimator._get_commute | OSRM unavailable, using Haversine fallback: %s", e)
+            # Haversine straight-line fallback: assumes ~20 km/h avg Beirut traffic
+            try:
+                lat1, lon1 = math.radians(float(nbhd.lat)), math.radians(float(nbhd.lng))
+                lat2, lon2 = math.radians(float(uni.lat)), math.radians(float(uni.lng))
+                dlat, dlon = lat2 - lat1, lon2 - lon1
+                a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+                km = 6371 * 2 * math.asin(math.sqrt(a))
+                return max(5, int(km / 20 * 60))  # at least 5 min
+            except Exception:
+                return None

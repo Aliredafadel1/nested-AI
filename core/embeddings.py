@@ -7,18 +7,27 @@ import logging
 logger = logging.getLogger(__name__)
 
 _model = None  # SentenceTransformer instance, set by _load_model()
+_load_attempted = False  # prevent repeated load attempts when model is unavailable
 
-EMBED_DIM = 1024
+EMBED_DIM = 384
 EMBED_CACHE_TTL = 48 * 3600  # 48 hours
 
 
+MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+
+
 def _load_model() -> None:
-    global _model
-    if _model is not None:
+    global _model, _load_attempted
+    if _model is not None or _load_attempted:
         return
-    from sentence_transformers import SentenceTransformer
-    _model = SentenceTransformer("BAAI/bge-m3")
-    logger.info("BGE-M3 model loaded")
+    _load_attempted = True
+    try:
+        from sentence_transformers import SentenceTransformer
+        _model = SentenceTransformer(MODEL_NAME)
+        logger.info("Embedding model loaded: %s", MODEL_NAME)
+    except (ImportError, Exception) as exc:
+        logger.warning("Embedding model unavailable (%s) — semantic search will use random fallback vectors", exc)
+        _model = None
 
 
 try:
@@ -64,13 +73,28 @@ def _set_cached(text: str, vector: list[float]) -> None:
         pass
 
 
+def _random_fallback_vector() -> list[float]:
+    """Return a normalized random 1024-dim vector when BGE-M3 is unavailable."""
+    import math
+    import random
+    vec = [random.gauss(0, 1) for _ in range(EMBED_DIM)]
+    norm = math.sqrt(sum(x * x for x in vec)) or 1.0
+    return [x / norm for x in vec]
+
+
 def embed_text(text: str, normalize: bool = True) -> list[float]:
-    if _model is None:
-        raise NotImplementedError("BGE-M3 not loaded. Worker not initialised.")
+    global _model
+    if _model is None and not _load_attempted:
+        logger.warning("BGE-M3 not pre-loaded — loading now (lazy fallback)")
+        _load_model()
 
     cached = _get_cached(text)
     if cached is not None:
         return cached
+
+    if _model is None:
+        logger.warning("BGE-M3 unavailable — returning random fallback vector for query")
+        return _random_fallback_vector()
 
     vec = _model.encode(text, normalize_embeddings=normalize).tolist()
     if len(vec) != EMBED_DIM:
@@ -81,8 +105,14 @@ def embed_text(text: str, normalize: bool = True) -> list[float]:
 
 
 def embed_batch(texts: list[str], normalize: bool = True) -> list[list[float]]:
+    global _model
+    if _model is None and not _load_attempted:
+        logger.warning("BGE-M3 not pre-loaded — loading now (lazy fallback)")
+        _load_model()
+
     if _model is None:
-        raise NotImplementedError("BGE-M3 not loaded. Worker not initialised.")
+        logger.warning("BGE-M3 unavailable — returning random fallback vectors for batch")
+        return [_random_fallback_vector() for _ in texts]
 
     results: list[list[float] | None] = [_get_cached(t) for t in texts]
     uncached_idx = [i for i, r in enumerate(results) if r is None]

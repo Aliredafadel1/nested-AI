@@ -33,13 +33,13 @@ export function Navbar() {
   const primary = [
     { to: "/listings",  label: "Listings",  icon: Home,         show: true },
     { to: "/agent",     label: "AI Chat",   icon: MessageSquare, show: isStudent },
+    { to: "/compare",   label: "Compare",   icon: BarChart2,    show: isStudent },
     { to: "/roommate",  label: "Roommate",  icon: Users,         show: isStudent },
     { to: "/contracts", label: "Contracts", icon: FileText,      show: isStudent },
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, show: isLandlord },
   ].filter((l) => l.show)
 
   const secondary = [
-    { to: "/compare",   label: "Compare Apartments", icon: BarChart2,  show: isStudent },
     { to: "/simulator", label: "Relocation Simulator", icon: MapPin,   show: isStudent },
     { to: "/saved",     label: "Saved Listings",     icon: Heart,      show: isStudent },
     { to: "/onboarding",label: "My Profile",         icon: UserCircle, show: isStudent },

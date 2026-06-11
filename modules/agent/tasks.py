@@ -36,7 +36,7 @@ def index_rag_chunk(chunk_id: int) -> None:
 
             vector = embed_text(row[0])
             await db.execute(
-                text("UPDATE rag_chunks SET embedding = :vec::vector WHERE id = :id"),
+                text("UPDATE rag_chunks SET embedding = CAST(:vec AS vector) WHERE id = :id"),
                 {"vec": str(vector), "id": chunk_id},
             )
             await db.commit()

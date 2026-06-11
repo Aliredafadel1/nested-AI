@@ -45,7 +45,7 @@ class Listing(Base):
     status:           Mapped[str]        = mapped_column(String(20), default="active")
     ip_address:       Mapped[str | None] = mapped_column(String(45))
     fraud_score:      Mapped[float]      = mapped_column(Numeric(4, 3), default=0.000)
-    embedding:        Mapped[list | None] = mapped_column(Vector(1024))
+    embedding:        Mapped[list | None] = mapped_column(Vector(384))
     created_at:       Mapped[str]        = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at:       Mapped[str]        = mapped_column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
 

@@ -56,7 +56,7 @@ class AgentRepository:
                 FROM rag_chunks
                 WHERE source_type = 'housing_faq'
                   AND embedding IS NOT NULL
-                ORDER BY embedding <=> :vec::vector
+                ORDER BY embedding <=> CAST(:vec AS vector)
                 LIMIT :limit
                 """
             ),

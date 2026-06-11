@@ -1,8 +1,8 @@
-"""Phase 2a integration tests — BGE-M3 embeddings and roommate matching.
+"""Phase 2a integration tests — multilingual embedding model and roommate matching.
 Runs against real PostgreSQL + Redis. No mocks.
 
-BGE-M3 unit tests are skipped unless the model cache is present (run in worker-low).
-Celery-dependent tests inject fake 1024-dim vectors directly into the DB so they run
+Model unit tests are skipped unless the model cache is present (run in worker-low).
+Celery-dependent tests inject fake 384-dim vectors directly into the DB so they run
 without needing a Celery worker — this tests the full API/SQL chain.
 """
 import asyncio
@@ -14,14 +14,15 @@ from starlette.testclient import TestClient
 
 from app.main import app
 from core.config import settings
+from core.embeddings import EMBED_DIM
 
 client = TestClient(app, raise_server_exceptions=True)
 
-# One shared fake 1024-dim vector for injection tests
-FAKE_VECTOR = "[" + ",".join(["0.001"] * 1024) + "]"
+# One shared fake EMBED_DIM-dim vector for injection tests
+FAKE_VECTOR = "[" + ",".join(["0.001"] * EMBED_DIM) + "]"
 
-# Orthogonal vector: first 512 dims high, last 512 near-zero — cosine sim ≈ 0 with FAKE_VECTOR_ORT
-_half = 512
+# Orthogonal vectors: first half high, second half near-zero — cosine sim ≈ 0 between OWL and BIRD
+_half = EMBED_DIM // 2
 FAKE_VECTOR_OWL  = "[" + ",".join(["1.0"] * _half + ["0.0001"] * _half) + "]"
 FAKE_VECTOR_BIRD = "[" + ",".join(["0.0001"] * _half + ["1.0"] * _half) + "]"
 
@@ -105,19 +106,19 @@ def _get_user_id(email: str) -> int:
 
 @pytest.mark.skipif(
     not os.path.exists("/root/.cache/huggingface"),
-    reason="BGE-M3 model cache not present — run in worker-low container",
+    reason="Embedding model cache not present — run in worker-low container",
 )
 def test_embed_text_dimension():
-    """embed_text returns exactly 1024-dim vector."""
-    from core.embeddings import _load_model, embed_text
+    """embed_text returns exactly EMBED_DIM-dim vector."""
+    from core.embeddings import EMBED_DIM, _load_model, embed_text
     _load_model()
     vec = embed_text("test listing in Hamra Beirut")
-    assert len(vec) == 1024
+    assert len(vec) == EMBED_DIM
 
 
 @pytest.mark.skipif(
     not os.path.exists("/root/.cache/huggingface"),
-    reason="BGE-M3 model cache not present — run in worker-low container",
+    reason="Embedding model cache not present — run in worker-low container",
 )
 def test_embed_text_normalized():
     """Normalized vector has magnitude ≈ 1.0."""
@@ -132,7 +133,7 @@ def test_embed_text_normalized():
 
 @pytest.mark.skipif(
     not os.path.exists("/root/.cache/huggingface"),
-    reason="BGE-M3 model cache not present — run in worker-low container",
+    reason="Embedding model cache not present — run in worker-low container",
 )
 def test_embed_batch_efficiency():
     """embed_batch returns correct count and dimensions."""
@@ -142,7 +143,7 @@ def test_embed_batch_efficiency():
     vecs = embed_batch(texts)
     assert len(vecs) == 3
     for vec in vecs:
-        assert len(vec) == 1024
+        assert len(vec) == EMBED_DIM
 
 
 # ── Listing embedding tests (vector injected directly) ───────────────────────

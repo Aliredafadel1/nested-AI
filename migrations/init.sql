@@ -1,11 +1,11 @@
--- NestAI Database Schema
+﻿-- NestAI Database Schema
 -- Idempotent: safe to run multiple times
 -- Table order: leaf tables first (no FK deps), then tables that reference them
 
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
--- ─── UNIVERSITIES (no deps) ───────────────────────────────────────────────────
+-- â”€â”€â”€ UNIVERSITIES (no deps) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS universities (
     id      SERIAL PRIMARY KEY,
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS universities (
     lng     NUMERIC(10,7) NOT NULL
 );
 
--- ─── AREA INTELLIGENCE (no deps) ─────────────────────────────────────────────
+-- â”€â”€â”€ AREA INTELLIGENCE (no deps) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS neighborhoods (
     id              SERIAL PRIMARY KEY,
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS neighborhoods (
     lng             NUMERIC(10,7)
 );
 
--- ─── USERS (no deps) ─────────────────────────────────────────────────────────
+-- â”€â”€â”€ USERS (no deps) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS users (
     id          SERIAL PRIMARY KEY,
@@ -53,8 +53,8 @@ CREATE TABLE IF NOT EXISTS student_profiles (
     guests              VARCHAR(20) CHECK (guests IN ('never', 'rarely', 'sometimes', 'often')),
     language            VARCHAR(20) CHECK (language IN ('arabic', 'french', 'english', 'mixed')),
     priorities          JSONB DEFAULT '[]',
-    embedding           vector(1024),
-    preference_vector   vector(1024),
+    embedding           vector(384),
+    preference_vector   vector(384),
     updated_at          TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS landlord_profiles (
     reputation_score NUMERIC(3,2) DEFAULT 0.00
 );
 
--- ─── HOUSING ─────────────────────────────────────────────────────────────────
+-- â”€â”€â”€ HOUSING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS listings (
     id                  SERIAL PRIMARY KEY,
@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS listings (
     lng                 NUMERIC(10,7),
     status              VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'pending')),
     fraud_score         NUMERIC(4,3) DEFAULT 0.000,
-    embedding           vector(1024),
+    embedding           vector(384),
     created_at          TIMESTAMPTZ DEFAULT NOW(),
     updated_at          TIMESTAMPTZ DEFAULT NOW()
 );
@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS saved_listings (
     PRIMARY KEY (user_id, listing_id)
 );
 
--- ─── FRAUD ───────────────────────────────────────────────────────────────────
+-- â”€â”€â”€ FRAUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS fraud_reports (
     id              SERIAL PRIMARY KEY,
@@ -126,7 +126,7 @@ CREATE TABLE IF NOT EXISTS fraud_reports (
     updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── ROOMMATE ────────────────────────────────────────────────────────────────
+-- â”€â”€â”€ ROOMMATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS roommate_requests (
     id              SERIAL PRIMARY KEY,
@@ -146,7 +146,7 @@ CREATE TABLE IF NOT EXISTS roommate_messages (
     created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── CONTRACTS ───────────────────────────────────────────────────────────────
+-- â”€â”€â”€ CONTRACTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS contracts (
     id          SERIAL PRIMARY KEY,
@@ -158,7 +158,7 @@ CREATE TABLE IF NOT EXISTS contracts (
     created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── ESTIMATOR ───────────────────────────────────────────────────────────────
+-- â”€â”€â”€ ESTIMATOR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS cost_estimates (
     id              SERIAL PRIMARY KEY,
@@ -174,7 +174,7 @@ CREATE TABLE IF NOT EXISTS cost_estimates (
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── NOTIFICATIONS ───────────────────────────────────────────────────────────
+-- â”€â”€â”€ NOTIFICATIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS notifications (
     id          SERIAL PRIMARY KEY,
@@ -185,7 +185,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── REPUTATION ──────────────────────────────────────────────────────────────
+-- â”€â”€â”€ REPUTATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS landlord_reviews (
     id              SERIAL PRIMARY KEY,
@@ -201,7 +201,7 @@ CREATE TABLE IF NOT EXISTS landlord_reviews (
     UNIQUE (landlord_id, reviewer_id, listing_id)
 );
 
--- ─── AGENT ───────────────────────────────────────────────────────────────────
+-- â”€â”€â”€ AGENT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE TABLE IF NOT EXISTS agent_sessions (
     id          SERIAL PRIMARY KEY,
@@ -218,7 +218,7 @@ CREATE TABLE IF NOT EXISTS student_memory (
     id                  SERIAL PRIMARY KEY,
     user_id             INTEGER UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     preferred_areas     JSONB DEFAULT '[]',
-    preference_vector   vector(1024),
+    preference_vector   vector(384),
     liked_count         INTEGER DEFAULT 0,
     updated_at          TIMESTAMPTZ DEFAULT NOW()
 );
@@ -228,12 +228,12 @@ CREATE TABLE IF NOT EXISTS rag_chunks (
     source_type VARCHAR(50) NOT NULL CHECK (source_type IN ('listing', 'area', 'contract_clause', 'housing_faq')),
     source_id   INTEGER,
     chunk_text  TEXT NOT NULL,
-    embedding   vector(1024),
+    embedding   vector(384),
     language    VARCHAR(10) DEFAULT 'en',
     created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── INDEXES ─────────────────────────────────────────────────────────────────
+-- â”€â”€â”€ INDEXES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 CREATE INDEX IF NOT EXISTS idx_listings_neighbourhood ON listings(neighbourhood_id);
 CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status);
@@ -258,7 +258,7 @@ CREATE INDEX IF NOT EXISTS idx_rag_chunks_embedding ON rag_chunks
 CREATE INDEX IF NOT EXISTS idx_listings_title_trgm ON listings USING gin (title gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_listings_description_trgm ON listings USING gin (description gin_trgm_ops);
 
--- ─── SEED: UNIVERSITIES ──────────────────────────────────────────────────────
+-- â”€â”€â”€ SEED: UNIVERSITIES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 INSERT INTO universities (name, lat, lng) VALUES
     ('American University of Beirut (AUB)', 33.9003, 35.4784),
@@ -273,19 +273,19 @@ INSERT INTO universities (name, lat, lng) VALUES
     ('Modern University for Business and Science (MUBS)', 33.8830, 35.5007)
 ON CONFLICT (name) DO NOTHING;
 
--- ─── SEED: NEIGHBOURHOODS ────────────────────────────────────────────────────
+-- â”€â”€â”€ SEED: NEIGHBOURHOODS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 INSERT INTO neighborhoods (name, name_ar, electricity, generator_cost, internet, transport, safety, student_vibe, lat, lng) VALUES
     -- electricity = avg EDL hours/day (post-2019 crisis reality)
     -- generator_cost = typical private generator subscription USD/month
-    ('Hamra',       'الحمرا',       12, 40, 4, 5, 4, 5, 33.8989, 35.4788),
-    ('Gemmayzeh',   'الجميزة',      12, 42, 4, 4, 4, 5, 33.8916, 35.5144),
-    ('Achrafieh',   'الأشرفية',     18, 28, 5, 4, 5, 4, 33.8888, 35.5133),  -- one of Beirut''s best EDL zones
-    ('Mar Mikhael', 'مار مخايل',    12, 42, 4, 4, 3, 5, 33.8854, 35.5203),
-    ('Verdun',      'فردان',        20, 22, 5, 3, 5, 3, 33.8820, 35.4893),   -- best EDL zone, residential
-    ('Badaro',      'بدارو',        14, 38, 4, 3, 4, 4, 33.8777, 35.5072),
-    ('Ras Beirut',  'رأس بيروت',    12, 40, 4, 4, 4, 5, 33.8969, 35.4742),
-    ('Dekwaneh',    'الدكوانة',      8, 50, 3, 3, 3, 3, 33.8898, 35.5570)   -- outer suburb, worst EDL hours
+    ('Hamra',       'Ø§Ù„Ø­Ù…Ø±Ø§',       12, 40, 4, 5, 4, 5, 33.8989, 35.4788),
+    ('Gemmayzeh',   'Ø§Ù„Ø¬Ù…ÙŠØ²Ø©',      12, 42, 4, 4, 4, 5, 33.8916, 35.5144),
+    ('Achrafieh',   'Ø§Ù„Ø£Ø´Ø±ÙÙŠØ©',     18, 28, 5, 4, 5, 4, 33.8888, 35.5133),  -- one of Beirut''s best EDL zones
+    ('Mar Mikhael', 'Ù…Ø§Ø± Ù…Ø®Ø§ÙŠÙ„',    12, 42, 4, 4, 3, 5, 33.8854, 35.5203),
+    ('Verdun',      'ÙØ±Ø¯Ø§Ù†',        20, 22, 5, 3, 5, 3, 33.8820, 35.4893),   -- best EDL zone, residential
+    ('Badaro',      'Ø¨Ø¯Ø§Ø±Ùˆ',        14, 38, 4, 3, 4, 4, 33.8777, 35.5072),
+    ('Ras Beirut',  'Ø±Ø£Ø³ Ø¨ÙŠØ±ÙˆØª',    12, 40, 4, 4, 4, 5, 33.8969, 35.4742),
+    ('Dekwaneh',    'Ø§Ù„Ø¯ÙƒÙˆØ§Ù†Ø©',      8, 50, 3, 3, 3, 3, 33.8898, 35.5570)   -- outer suburb, worst EDL hours
 ON CONFLICT (name) DO UPDATE SET
     electricity    = EXCLUDED.electricity,
     generator_cost = EXCLUDED.generator_cost;
