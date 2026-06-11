@@ -1,22 +1,21 @@
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+# Import all models so Alembic sees them for autogenerate
+import modules.agent.models  # noqa: F401
+import modules.area_intel.models  # noqa: F401
+import modules.contracts.models  # noqa: F401
+import modules.estimator.models  # noqa: F401
+import modules.fraud.models  # noqa: F401
+import modules.housing.models  # noqa: F401
+import modules.notifications.models  # noqa: F401
+import modules.reputation.models  # noqa: F401
+import modules.roommate.models  # noqa: F401
+import modules.users.models  # noqa: F401
+from alembic import context
 from core.config import settings
 from core.database import Base
-
-# Import all models so Alembic sees them for autogenerate
-import modules.agent.models       # noqa: F401
-import modules.area_intel.models  # noqa: F401
-import modules.contracts.models   # noqa: F401
-import modules.estimator.models   # noqa: F401
-import modules.fraud.models       # noqa: F401
-import modules.housing.models     # noqa: F401
-import modules.notifications.models  # noqa: F401
-import modules.reputation.models   # noqa: F401
-import modules.roommate.models    # noqa: F401
-import modules.users.models       # noqa: F401
 
 config = context.config
 
