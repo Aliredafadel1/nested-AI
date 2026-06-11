@@ -10,8 +10,9 @@ from fastapi import HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.redis import RedisKeys
+from core.storage import Bucket, validate_magic_bytes
 from modules.agent.repository import AgentRepository
-from modules.agent.schemas import AgentState, ChatRequest
+from modules.agent.schemas import AgentState, ChatRequest, FeedbackRequest, FeedbackResponse
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,23 @@ class AgentService:
     def __init__(self, db: AsyncSession, redis: aioredis.Redis):
         self._db    = db
         self._redis = redis
+
+    async def _check_llm_rate(self, user_id: int, task: str, limit: int) -> None:
+        key = RedisKeys.rate_llm(user_id, task)
+        count = await self._redis.incr(key)
+        if count == 1:
+            await self._redis.expire(key, 86400)
+        if count > limit:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Daily limit reached. You can use this feature up to {limit} times per day.",
+            )
+
+    async def check_chat_rate(self, user_id: int) -> None:
+        await self._check_llm_rate(user_id, "agent_chat", 50)
+
+    async def check_transcribe_rate(self, user_id: int) -> None:
+        await self._check_llm_rate(user_id, "transcribe", 20)
 
     async def chat(self, user_id: int, req: ChatRequest) -> AsyncGenerator[str, None]:
         from modules.agent.graph import build_graph
@@ -53,7 +71,7 @@ class AgentService:
         async for chunk in graph(state):
             yield chunk
 
-    async def transcribe(self, file: UploadFile) -> str:
+    async def transcribe(self, user_id: int, file: UploadFile) -> str:
         import os
 
         from core.llm_router import transcribe_audio
@@ -72,7 +90,37 @@ class AgentService:
         if len(file_bytes) > MAX_AUDIO_SIZE:
             raise HTTPException(status_code=413, detail="Audio file exceeds 25 MB limit.")
 
+        # Magic-byte validation — constitution requires this before any upload/processing
+        validate_magic_bytes(file_bytes, Bucket.AUDIO)
+
         return transcribe_audio(file_bytes, filename)
+
+    async def save_feedback(self, user_id: int, req: FeedbackRequest) -> FeedbackResponse:
+        import json as _json
+
+        if req.rating not in (1, -1):
+            raise HTTPException(status_code=400, detail="rating must be 1 or -1")
+
+        repo = AgentRepository(self._db)
+        session = await repo.get_session(req.session_id)
+        query_text = None
+        if session and session.history:
+            history = (
+                _json.loads(session.history)
+                if isinstance(session.history, str)
+                else session.history
+            )
+            if isinstance(history, list) and req.turn_index < len(history):
+                query_text = history[req.turn_index].get("query")
+
+        await repo.save_feedback(
+            session_id=req.session_id,
+            turn_index=req.turn_index,
+            user_id=user_id,
+            rating=req.rating,
+            query_text=query_text,
+        )
+        return FeedbackResponse(saved=True)
 
     def _init_state(self, user_id: int, session_id: str, query: str) -> AgentState:
         return AgentState(

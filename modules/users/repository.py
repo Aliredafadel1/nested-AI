@@ -51,6 +51,12 @@ class UserRepository:
         await self._db.flush()
         return profile
 
+    async def update_password(self, user_id: int, password_hash: str) -> None:
+        user = await self.get_by_id(user_id)
+        if user:
+            user.password_hash = password_hash
+            await self._db.flush()
+
     async def update_profile_embeddings(
         self,
         user_id: int,

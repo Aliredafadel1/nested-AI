@@ -5,6 +5,16 @@ const API_TARGET = process.env.VITE_API_TARGET ?? 'http://localhost:8000'
 
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: {
+    include: [
+      'leaflet',
+      'react-leaflet',
+      '@tanstack/react-query',
+      'zustand',
+      'react-router-dom',
+      'react-hot-toast',
+    ],
+  },
   server: {
     host: '0.0.0.0',
     port: 3000,

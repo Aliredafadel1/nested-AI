@@ -29,7 +29,10 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
 
   let res = await fetch(`${BASE}${path}`, { ...init, headers, credentials: "include" })
 
-  if (res.status === 401) {
+  // Only attempt refresh + redirect when the request was authenticated.
+  // Unauthenticated 401s (e.g. bad login credentials) fall through so the
+  // caller can read the error detail and show it to the user.
+  if (res.status === 401 && token) {
     const newToken = await refreshToken()
     if (newToken) {
       headers["Authorization"] = `Bearer ${newToken}`

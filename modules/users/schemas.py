@@ -54,6 +54,15 @@ class StudentProfileOut(BaseModel):
     priorities: list
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
 class UserMeOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

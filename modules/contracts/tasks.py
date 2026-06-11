@@ -3,6 +3,7 @@ import json
 import logging
 
 from core.celery_config import celery_app
+from core.redis import RedisKeys
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,7 @@ def analyze_contract_async(contract_id: int) -> None:
             # ── Tokenomics optimisation 1: hash cache ────────────────────────
             # If this exact contract text was analyzed before, return cached result.
             text_hash = hashlib.sha256(text.encode()).hexdigest()[:32]
-            cache_key = f"contract_analysis:{text_hash}"
+            cache_key = RedisKeys.contract_analysis_cache(text_hash)
             r = redis_sync.from_url(settings.REDIS_URL, decode_responses=True)
             try:
                 cached_raw = r.get(cache_key)
@@ -184,17 +185,16 @@ def analyze_contract_async(contract_id: int) -> None:
 
 
 async def _ocr_pdf(file_bytes: bytes) -> str:
-    """Convert PDF pages to images and run GPT-4o Vision OCR."""
+    """Convert PDF pages to images and run vision OCR via core/llm_router.py."""
     try:
         import base64
 
         import fitz
 
-        from core.llm_router import _openai_client
+        from core.llm_router import ocr_pdf_page
 
         doc = fitz.open(stream=file_bytes, filetype="pdf")
         all_text = []
-        client = _openai_client()
 
         for page_num, page in enumerate(doc):
             if page_num >= 10:
@@ -202,19 +202,7 @@ async def _ocr_pdf(file_bytes: bytes) -> str:
             pix = page.get_pixmap(dpi=150)
             img_bytes = pix.tobytes("png")
             img_b64 = base64.b64encode(img_bytes).decode()
-
-            response = client.chat.completions.create(
-                model="gpt-4o",
-                max_tokens=1000,
-                messages=[{
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": "Extract all text from this lease contract page verbatim."},
-                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}},
-                    ],
-                }],
-            )
-            all_text.append(response.choices[0].message.content)
+            all_text.append(ocr_pdf_page(img_b64))
 
         doc.close()
         return "\n".join(all_text)

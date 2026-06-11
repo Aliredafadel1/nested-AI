@@ -1,7 +1,7 @@
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from modules.roommate.models import RoommateRequest
+from modules.roommate.models import RoommateMessage, RoommateRequest
 from modules.roommate.schemas import DimensionScores, MatchOut
 
 
@@ -148,3 +148,41 @@ class RoommateRepository:
         self._db.add(req)
         await self._db.flush()
         return req
+
+    async def get_request_by_id(self, request_id: int) -> RoommateRequest | None:
+        result = await self._db.execute(
+            select(RoommateRequest).where(RoommateRequest.id == request_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_my_requests(self, user_id: int) -> list[RoommateRequest]:
+        result = await self._db.execute(
+            select(RoommateRequest).where(
+                (RoommateRequest.from_user_id == user_id) |
+                (RoommateRequest.to_user_id == user_id)
+            ).order_by(RoommateRequest.created_at.desc())
+        )
+        return list(result.scalars().all())
+
+    async def update_request_status(self, request_id: int, status: str) -> RoommateRequest:
+        result = await self._db.execute(
+            select(RoommateRequest).where(RoommateRequest.id == request_id)
+        )
+        req = result.scalar_one()
+        req.status = status
+        await self._db.flush()
+        return req
+
+    async def create_message(self, request_id: int, sender_id: int, content: str) -> RoommateMessage:
+        msg = RoommateMessage(request_id=request_id, sender_id=sender_id, content=content)
+        self._db.add(msg)
+        await self._db.flush()
+        return msg
+
+    async def get_messages(self, request_id: int) -> list[RoommateMessage]:
+        result = await self._db.execute(
+            select(RoommateMessage)
+            .where(RoommateMessage.request_id == request_id)
+            .order_by(RoommateMessage.created_at.asc())
+        )
+        return list(result.scalars().all())

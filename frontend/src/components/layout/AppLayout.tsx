@@ -4,12 +4,18 @@ import { Navbar } from "./Navbar"
 import { FloatingChatWidget } from "./FloatingChatWidget"
 import { useAuthStore } from "../../stores/authStore"
 import { useNotifStore } from "../../stores/notifStore"
-import { connectSSE } from "../../api/notifications"
+import { connectSSE, useNotifications } from "../../api/notifications"
 import toast from "react-hot-toast"
 
 export function AppLayout() {
   const { accessToken } = useAuthStore()
-  const { addNew, increment } = useNotifStore()
+  const { addNew, increment, setAll } = useNotifStore()
+  const { data: initialNotifs } = useNotifications()
+
+  // Sync unread count from API on mount so badge survives page refresh
+  useEffect(() => {
+    if (initialNotifs) setAll(initialNotifs)
+  }, [initialNotifs, setAll])
 
   useEffect(() => {
     if (!accessToken) return

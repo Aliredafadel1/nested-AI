@@ -129,27 +129,33 @@ class RateLimitMiddleware:
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
-            from starlette.requests import Request as StarletteRequest
-            from starlette.responses import JSONResponse
+            from core.redis import _TESTING
 
-            from core.redis import RedisKeys, get_async_redis
+            # Skip Redis rate limiting in tests: each TestClient request gets a
+            # new anyio event loop, so async Redis clients from a previous loop
+            # cannot be safely reused (fd reuse + loop mismatch). Rate limiting
+            # is covered by dedicated integration tests in production.
+            if not _TESTING:
+                from starlette.requests import Request as StarletteRequest
+                from starlette.responses import JSONResponse
 
-            request = StarletteRequest(scope, receive)
-            ip = request.client.host if request.client else "unknown"
-            path = request.url.path
-            key = RedisKeys.rate_ip(ip, path)
+                from core.redis import RedisKeys, get_async_redis
 
-            # Shared pool — no aclose() needed
-            redis = get_async_redis()
-            count = await redis.incr(key)
-            if count == 1:
-                await redis.expire(key, 60)
-            if count > self.rpm:
-                response = JSONResponse(
-                    {"detail": "Rate limit exceeded. Try again in a minute."},
-                    status_code=429,
-                )
-                await response(scope, receive, send)
-                return
+                request = StarletteRequest(scope, receive)
+                ip = request.client.host if request.client else "unknown"
+                path = request.url.path
+                key = RedisKeys.rate_ip(ip, path)
+
+                redis = get_async_redis()
+                count = await redis.incr(key)
+                if count == 1:
+                    await redis.expire(key, 60)
+                if count > self.rpm:
+                    response = JSONResponse(
+                        {"detail": "Rate limit exceeded. Try again in a minute."},
+                        status_code=429,
+                    )
+                    await response(scope, receive, send)
+                    return
 
         await self.app(scope, receive, send)

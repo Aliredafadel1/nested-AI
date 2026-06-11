@@ -5,6 +5,7 @@ export interface Listing {
   id: number; title: string; price: number; bedrooms: number
   neighbourhood_id: number; description?: string; status: string
   lat?: number | null; lng?: number | null; fraud_score?: number | null
+  amenities?: Record<string, boolean> | null
   photos?: { minio_key: string; is_primary: boolean }[]
 }
 
@@ -104,5 +105,26 @@ export function useUploadPhoto() {
       const fd = new FormData(); fd.append("file", file)
       return apiJson<{ url: string }>(`/listings/${id}/photos`, { method: "POST", body: fd })
     },
+  })
+}
+
+// ── Comparison ────────────────────────────────────────────────────────────────
+
+export interface CompareAreaInfo {
+  name: string; electricity_hours: number | null; generator_cost: number | null
+  internet: number | null; transport: number | null; safety: number | null
+  student_vibe: number | null; livability_score: number; student_score: number
+}
+
+export interface ListingCompareItem { listing: Listing; area: CompareAreaInfo; true_monthly: number }
+export interface ListingCompareOut { items: ListingCompareItem[] }
+
+export function useCompareListings() {
+  return useMutation({
+    mutationFn: (listing_ids: number[]) =>
+      apiJson<ListingCompareOut>("/listings/compare", {
+        method: "POST",
+        body: JSON.stringify({ listing_ids }),
+      }),
   })
 }

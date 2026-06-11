@@ -3,23 +3,37 @@ from __future__ import annotations
 import io
 import uuid
 
+import redis.asyncio as aioredis
 from fastapi import HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.redis import RedisKeys
 from core.storage import Bucket, get_minio_client
 from modules.contracts.repository import ContractsRepository
 from modules.contracts.schemas import ContractAnalysis, ContractCreateOut, ContractOut
 
 MAX_CONTRACT_SIZE = 10 * 1024 * 1024  # 10 MB
 PDF_MAGIC = b"%PDF"
+DAILY_CONTRACT_LIMIT = 10
 
 
 class ContractsService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, redis: aioredis.Redis | None = None):
         self._db   = db
+        self._redis = redis
         self._repo = ContractsRepository(db)
 
     async def upload_and_queue(self, user_id: int, file: UploadFile) -> ContractCreateOut:
+        if self._redis is not None:
+            key = RedisKeys.rate_llm(user_id, "analyze_contract")
+            count = await self._redis.incr(key)
+            if count == 1:
+                await self._redis.expire(key, 86400)
+            if count > DAILY_CONTRACT_LIMIT:
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"Daily contract analysis limit ({DAILY_CONTRACT_LIMIT}/day) reached. Try again tomorrow.",
+                )
         # Read entire file into memory for validation
         file_bytes = await file.read()
 

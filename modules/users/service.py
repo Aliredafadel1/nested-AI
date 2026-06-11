@@ -104,6 +104,24 @@ class UserService:
         )
         return TokenResponse(access_token=access_token, role=user.role), raw_refresh
 
+    async def forgot_password(self, email: str) -> None:
+        import secrets
+        from core.email import send_password_reset_email
+        user = await self._repo.get_by_email(email)
+        if not user:
+            return  # Don't leak whether the email exists
+        token = secrets.token_urlsafe(32)
+        await self._redis.setex(RedisKeys.reset_token(token), 900, str(user.id))
+        reset_link = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+        send_password_reset_email(user.email, reset_link)
+
+    async def reset_password(self, token: str, new_password: str) -> None:
+        user_id_str = await self._redis.get(RedisKeys.reset_token(token))
+        if not user_id_str:
+            raise HTTPException(status_code=400, detail="Reset token is invalid or has expired.")
+        await self._redis.delete(RedisKeys.reset_token(token))
+        await self._repo.update_password(int(user_id_str), hash_password(new_password))
+
     async def get_me(self, user_id: int, role: str):
         from modules.users.schemas import StudentProfileOut, UserMeOut
         user = await self._repo.get_by_id(user_id)

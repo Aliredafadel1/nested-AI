@@ -13,6 +13,7 @@ MAX_PHOTOS_PER_LISTING = 20
 
 class HousingService:
     def __init__(self, db: AsyncSession):
+        self._db = db
         self._repo = HousingRepository(db)
 
     async def get_listings(self, filters: ListingFilters) -> list[Listing]:
@@ -122,6 +123,37 @@ class HousingService:
 
     async def get_similar_listing_embeddings(self, listing_id: int, limit: int = 5) -> list[dict]:
         return await self._repo.get_similar_listing_embeddings(listing_id, limit)
+
+    async def compare_listings(self, listing_ids: list[int], redis) -> list[dict]:
+        from modules.area_intel.service import AreaIntelService
+        from core.features import true_monthly_cost
+        area_svc = AreaIntelService(self._db, redis)
+
+        results = []
+        for lid in listing_ids:
+            listing = await self.get_listing(lid)
+            area = await area_svc.get_by_id(listing.neighbourhood_id)
+            monthly = true_monthly_cost(
+                listing.price,
+                area.generator_cost,
+                area.transport,
+            )
+            results.append({
+                "listing": listing,
+                "area": {
+                    "name": area.name,
+                    "electricity_hours": area.electricity,
+                    "generator_cost": area.generator_cost,
+                    "internet": area.internet,
+                    "transport": area.transport,
+                    "safety": area.safety,
+                    "student_vibe": area.student_vibe,
+                    "livability_score": area.livability_score,
+                    "student_score": area.student_score,
+                },
+                "true_monthly": monthly,
+            })
+        return results
 
     async def _get_own_listing(self, listing_id: int, landlord_id: int) -> Listing:
         listing = await self._repo.get_by_id(listing_id)

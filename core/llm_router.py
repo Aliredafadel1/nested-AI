@@ -88,6 +88,13 @@ def _groq_client() -> OpenAI:
     return OpenAI(api_key=api_key, base_url=_GROQ_BASE_URL)
 
 
+def _openai_client() -> OpenAI:
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        raise OSError("OPENAI_API_KEY is not set")
+    return OpenAI(api_key=api_key)
+
+
 # ---------------------------------------------------------------------------
 # Per-tier call helpers
 # ---------------------------------------------------------------------------
@@ -309,6 +316,27 @@ def stream_llm(task: str, prompt: str, **kwargs) -> Iterator[str]:
 # ---------------------------------------------------------------------------
 # Audio transcription — Whisper via Groq (free)
 # ---------------------------------------------------------------------------
+
+def ocr_pdf_page(img_b64: str) -> str:
+    """OCR a single PDF page image via Groq vision. Routed here to satisfy no-SDK-outside-llm_router."""
+    try:
+        client = _groq_client()
+        response = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            max_tokens=1000,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Extract all text from this lease contract page verbatim. Return only the text, no commentary."},
+                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}},
+                ],
+            }],
+        )
+        return response.choices[0].message.content or ""
+    except Exception as e:
+        logger.error("ocr_pdf_page | Groq vision failed: %s", e)
+        return ""
+
 
 def transcribe_audio(file_bytes: bytes, filename: str) -> str:
     """

@@ -22,6 +22,7 @@ import redis.asyncio as aioredis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.llm_router import call_llm, stream_llm
+from core.redis import RedisKeys
 from core.security import sanitize_llm_input
 from modules.agent import tools as mcp
 from modules.agent.repository import AgentRepository
@@ -69,7 +70,7 @@ async def parse_intent_node(state: AgentState, db: AsyncSession, redis: aioredis
     query = sanitize_llm_input(state["query"])
 
     # Cache key: sha256 of the sanitised query
-    cache_key = "intent:" + hashlib.sha256(query.encode()).hexdigest()[:24]
+    cache_key = RedisKeys.intent_cache(hashlib.sha256(query.encode()).hexdigest()[:24])
     cached = await redis.get(cache_key)
     if cached:
         logger.info("parse_intent | cache hit")
@@ -340,7 +341,6 @@ async def stream_compare_and_respond_node(
 
 async def _persist_session(state: AgentState, response: str, db: AsyncSession, redis) -> None:
     try:
-        from core.redis import RedisKeys
         turn    = {"query": state["query"], "response": response}
         history = list(state.get("history", [])) + [turn]
 

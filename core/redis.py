@@ -114,3 +114,15 @@ class RedisKeys:
     @staticmethod
     def notification_unread(user_id: int) -> str:
         return f"notif:unread:{user_id}"
+
+    @staticmethod
+    def contract_analysis_cache(text_hash: str) -> str:
+        return f"contract_analysis:{text_hash}"
+
+    @staticmethod
+    def intent_cache(query_hash: str) -> str:
+        return f"intent:{query_hash}"
+
+    @staticmethod
+    def reset_token(token: str) -> str:
+        return f"pwreset:{token}"

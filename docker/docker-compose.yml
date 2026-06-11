@@ -37,10 +37,11 @@ services:
 
   db:
     image: pgvector/pgvector:pg16
+    env_file: ../.env
     environment:
-      POSTGRES_USER: nestai
-      POSTGRES_PASSWORD: nestai
-      POSTGRES_DB: nestai
+      POSTGRES_USER: ${POSTGRES_USER:-nestai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nestai}
+      POSTGRES_DB: ${POSTGRES_DB:-nestai}
     ports:
       - "5432:5432"
     volumes:
@@ -72,9 +73,7 @@ services:
     ports:
       - "9000:9000"
       - "9001:9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    env_file: ../.env
     volumes:
       - miniodata:/data
     command: server /data --console-address ":9001"

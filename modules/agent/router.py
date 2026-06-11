@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import get_db
 from core.redis import get_redis_dep
 from core.security import require_student_role
-from modules.agent.repository import AgentRepository
 from modules.agent.schemas import ChatRequest, FeedbackRequest, FeedbackResponse, TranscribeResponse
 from modules.agent.service import AgentService
 
@@ -26,8 +25,10 @@ async def agent_chat(
     current_user=Depends(require_student_role),
     svc: AgentService = Depends(_svc),
 ):
+    user_id = int(current_user["sub"])
+    await svc.check_chat_rate(user_id)
     return StreamingResponse(
-        svc.chat(int(current_user["sub"]), req),
+        svc.chat(user_id, req),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -42,7 +43,9 @@ async def transcribe_audio(
     current_user=Depends(require_student_role),
     svc: AgentService = Depends(_svc),
 ):
-    text = await svc.transcribe(file)
+    user_id = int(current_user["sub"])
+    await svc.check_transcribe_rate(user_id)
+    text = await svc.transcribe(user_id, file)
     return TranscribeResponse(text=text)
 
 
@@ -50,25 +53,6 @@ async def transcribe_audio(
 async def submit_feedback(
     req: FeedbackRequest,
     current_user=Depends(require_student_role),
-    db: AsyncSession = Depends(get_db),
+    svc: AgentService = Depends(_svc),
 ):
-    """Store a thumbs-up/down rating on an agent response turn. Used for RLHF."""
-    if req.rating not in (1, -1):
-        from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail="rating must be 1 or -1")
-    repo = AgentRepository(db)
-    session = await repo.get_session(req.session_id)
-    query_text = None
-    if session and session.history:
-        import json as _json
-        history = _json.loads(session.history) if isinstance(session.history, str) else session.history
-        if isinstance(history, list) and req.turn_index < len(history):
-            query_text = history[req.turn_index].get("query")
-    await repo.save_feedback(
-        session_id=req.session_id,
-        turn_index=req.turn_index,
-        user_id=int(current_user["sub"]),
-        rating=req.rating,
-        query_text=query_text,
-    )
-    return FeedbackResponse(saved=True)
+    return await svc.save_feedback(int(current_user["sub"]), req)

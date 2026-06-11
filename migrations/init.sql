@@ -138,6 +138,14 @@ CREATE TABLE IF NOT EXISTS roommate_requests (
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS roommate_messages (
+    id          SERIAL PRIMARY KEY,
+    request_id  INTEGER NOT NULL REFERENCES roommate_requests(id) ON DELETE CASCADE,
+    sender_id   INTEGER NOT NULL REFERENCES users(id),
+    content     TEXT NOT NULL CHECK (char_length(content) <= 1000),
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ─── CONTRACTS ───────────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS contracts (

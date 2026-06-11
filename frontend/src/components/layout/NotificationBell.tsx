@@ -3,6 +3,16 @@ import { Bell } from "lucide-react"
 import { useNotifStore } from "../../stores/notifStore"
 import { useNotifications, useMarkRead } from "../../api/notifications"
 
+const TYPE_LABELS: Record<string, string> = {
+  listing_saved: "Someone saved your listing",
+  roommate_request: "New roommate request",
+  roommate_accepted: "Roommate request accepted",
+  contract_analyzed: "Contract analysis ready",
+  fraud_flagged: "Listing flagged for review",
+  message: "New message",
+  system: "System notification",
+}
+
 export function NotificationBell() {
   const [open, setOpen] = useState(false)
   const { unreadCount, markRead: markLocal } = useNotifStore()
@@ -42,8 +52,13 @@ export function NotificationBell() {
               className={`px-4 py-3 cursor-pointer hover:bg-gray-50 border-b last:border-b-0
                 ${n.read ? "opacity-60" : "bg-blue-50/50"}`}
             >
-              <p className="text-sm text-gray-700">{n.type}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{new Date(n.created_at).toLocaleString()}</p>
+              <div className="flex items-start gap-2">
+                {!n.read && <span className="mt-1.5 w-2 h-2 rounded-full bg-blue-500 shrink-0" />}
+                <div className={n.read ? "" : "ml-0"}>
+                  <p className="text-sm text-gray-700 font-medium">{TYPE_LABELS[n.type] ?? n.type}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{new Date(n.created_at).toLocaleString()}</p>
+                </div>
+              </div>
             </div>
           ))}
         </div>

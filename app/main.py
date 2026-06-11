@@ -1,3 +1,5 @@
+import logging
+import sys
 from contextlib import asynccontextmanager
 
 import sentry_sdk
@@ -7,6 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 from core.logging import RequestIDMiddleware, SecurityHeadersMiddleware, configure_logging
 from core.security import RateLimitMiddleware
+
+_startup_logger = logging.getLogger(__name__)
 from modules.agent.router import router as agent_router
 from modules.area_intel.router import router as area_intel_router
 from modules.contracts.router import router as contracts_router
@@ -23,6 +27,11 @@ async def lifespan(app: FastAPI):
     configure_logging()
     if settings.SENTRY_DSN:
         sentry_sdk.init(dsn=settings.SENTRY_DSN, environment=settings.ENVIRONMENT, traces_sample_rate=0.1)
+    if settings.ENVIRONMENT == "testing" and "pytest" not in sys.modules:
+        _startup_logger.warning(
+            "ENVIRONMENT=testing outside of pytest — IP rate limiting is disabled. "
+            "Check your deployment configuration."
+        )
     yield
 
 

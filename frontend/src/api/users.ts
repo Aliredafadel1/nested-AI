@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query"
 import { apiJson } from "./client"
 
 export interface TokenResponse { access_token: string; token_type: string; role: string }
@@ -22,5 +23,18 @@ export const refresh = () =>
 
 export const getMe = () => apiJson<UserMe>("/users/me")
 
+export function useMe() {
+  return useQuery({ queryKey: ["me"], queryFn: () => apiJson<UserMe>("/users/me"), staleTime: 5 * 60_000 })
+}
+
 export const onboard = (data: Record<string, unknown>) =>
   apiJson("/users/onboarding", { method: "POST", body: JSON.stringify(data) })
+
+export const forgotPassword = (email: string) =>
+  apiJson<{ message: string }>("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  })
+
+export const resetPassword = (token: string, new_password: string) =>
+  apiJson("/auth/reset-password", { method: "POST", body: JSON.stringify({ token, new_password }) })

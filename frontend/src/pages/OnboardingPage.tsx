@@ -19,12 +19,18 @@ const UNIS = [
 
 const STEPS = ["University", "Budget", "Sleep", "Study", "Cleanliness", "Guests", "Language", "Priorities"]
 
+interface OnboardingData {
+  university_id: number; budget_min: number; budget_max: number
+  sleep_schedule: string; study_habits: string; cleanliness: string
+  guests: string; language: string; priorities: string[]
+}
+
 export function OnboardingPage() {
   const navigate = useNavigate()
   useAuthStore()
   const [step, setStep] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [data, setData] = useState<Record<string, unknown>>({
+  const [data, setData] = useState<OnboardingData>({
     university_id: UNIS[0].id, budget_min: 300, budget_max: 700,
     sleep_schedule: "flexible", study_habits: "moderate", cleanliness: "medium",
     guests: "sometimes", language: "english", priorities: [],
@@ -32,29 +38,30 @@ export function OnboardingPage() {
 
   useEffect(() => {
     getMe().then((me) => {
-      if (me.profile) {
+      const p = me.profile
+      if (p) {
         setData((d) => ({
           ...d,
-          university_id:  me.profile.university_id ?? d.university_id,
-          budget_min:     me.profile.budget_min     ?? d.budget_min,
-          budget_max:     me.profile.budget_max     ?? d.budget_max,
-          sleep_schedule: me.profile.sleep_schedule ?? d.sleep_schedule,
-          study_habits:   me.profile.study_habits   ?? d.study_habits,
-          cleanliness:    me.profile.cleanliness    ?? d.cleanliness,
-          guests:         me.profile.guests         ?? d.guests,
-          language:       me.profile.language       ?? d.language,
-          priorities:     me.profile.priorities     ?? d.priorities,
+          university_id:  p.university_id  ?? d.university_id,
+          budget_min:     p.budget_min     ?? d.budget_min,
+          budget_max:     p.budget_max     ?? d.budget_max,
+          sleep_schedule: p.sleep_schedule ?? d.sleep_schedule,
+          study_habits:   p.study_habits   ?? d.study_habits,
+          cleanliness:    p.cleanliness    ?? d.cleanliness,
+          guests:         p.guests         ?? d.guests,
+          language:       p.language       ?? d.language,
+          priorities:     (p.priorities as string[]) ?? d.priorities,
         }))
       }
     }).catch(() => {})
   }, [])
 
-  const set = (k: string, v: unknown) => setData((d) => ({ ...d, [k]: v }))
+  const set = (k: keyof OnboardingData, v: OnboardingData[keyof OnboardingData]) => setData((d) => ({ ...d, [k]: v }))
 
   const submit = async () => {
     setLoading(true)
     try {
-      await onboard(data)
+      await onboard(data as unknown as Record<string, unknown>)
       navigate("/listings")
     } catch (e) { toast.error(e instanceof Error ? e.message : "Failed to save profile") }
     finally { setLoading(false) }
@@ -111,7 +118,7 @@ export function OnboardingPage() {
             <label key={p} className="flex items-center gap-2 py-1.5 cursor-pointer">
               <input type="checkbox" className="w-4 h-4"
                 checked={data.priorities.includes(p)}
-                onChange={(e) => set("priorities", e.target.checked ? [...data.priorities, p] : data.priorities.filter((x: string) => x !== p))}
+                onChange={(e) => set("priorities", e.target.checked ? [...data.priorities, p] : data.priorities.filter((x) => x !== p))}
               />
               <span className="text-sm capitalize">{p.replace(/_/g, " ")}</span>
             </label>

@@ -13,7 +13,7 @@ export function ChatPanel() {
   const [input, setInput] = useState("")
   const [streaming, setStreaming] = useState(false)
   const [progress, setProgress] = useState<string | null>(null)
-  const [lang, setLang] = useState<"en" | "ar" | null>(null)
+  const [lang, setLang] = useState<"en" | "ar" | undefined>(undefined)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }) }, [messages, progress])
@@ -62,8 +62,8 @@ export function ChatPanel() {
       <div className="flex justify-end px-4 pt-3 pb-1">
         <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-medium">
           <button
-            onClick={() => setLang(null)}
-            className={`px-3 py-1.5 transition ${lang === null ? "bg-primary text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}
+            onClick={() => setLang(undefined)}
+            className={`px-3 py-1.5 transition ${lang === undefined ? "bg-primary text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}
           >
             Auto
           </button>
@@ -104,16 +104,20 @@ export function ChatPanel() {
         <div ref={bottomRef} />
       </div>
 
-      <div className="border-t px-4 py-3 bg-white">
+      <div
+        className="border-t px-4 py-3 bg-white shrink-0"
+        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+      >
         <QuickChips onSelect={(t) => send(t)} />
         <div className="flex gap-2 mt-2">
           <input
-            className={`flex-1 border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 ${lang === "ar" ? "text-right" : ""}`}
+            className={`flex-1 border rounded-xl px-4 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-primary/30 ${lang === "ar" ? "text-right" : ""}`}
             placeholder={lang === "ar" ? "اسأل عن الشقق، الأحياء، ساعات الكهرباء…" : "Ask about listings, areas, generator hours… (or type in 3arabizi / عربي)"}
             dir={lang === "ar" ? "rtl" : "ltr"}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send(input)}
+            onFocus={() => setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 350)}
             disabled={streaming}
           />
           <VoiceButton onTranscript={(t) => { setInput(t); send(t) }} />

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DimensionScores(BaseModel):
@@ -31,5 +31,23 @@ class RequestOut(BaseModel):
     dimensions:   dict
     status:       str
     created_at:   datetime
+
+    model_config = {"from_attributes": True}
+
+
+class RequestRespond(BaseModel):
+    accept: bool
+
+
+class MessageCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=1000)
+
+
+class MessageOut(BaseModel):
+    id:         int
+    request_id: int
+    sender_id:  int
+    content:    str
+    created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from core.features import (
     amenity_count,
@@ -129,3 +129,31 @@ class ListingFilters(BaseModel):
     status: str = "active"
     skip: int = 0
     limit: int = 50
+
+
+# ── Comparison ────────────────────────────────────────────────────────────────
+
+class CompareRequest(BaseModel):
+    listing_ids: list[int] = Field(..., min_length=2, max_length=3)
+
+
+class CompareAreaInfo(BaseModel):
+    name: str
+    electricity_hours: float | None
+    generator_cost: int | None
+    internet: int | None
+    transport: int | None
+    safety: int | None
+    student_vibe: int | None
+    livability_score: float
+    student_score: float
+
+
+class ListingCompareItem(BaseModel):
+    listing: ListingOut
+    area: CompareAreaInfo
+    true_monthly: int
+
+
+class ListingCompareOut(BaseModel):
+    items: list[ListingCompareItem]

@@ -23,7 +23,7 @@ export function FloatingChatWidget() {
 
       {/* Panel — full-width on mobile, fixed 384px on sm+ */}
       {isOpen && (
-        <div className="fixed bottom-0 right-0 left-0 sm:bottom-24 sm:right-6 sm:left-auto z-50 w-full sm:w-96 h-[85vh] sm:h-[580px] bg-white sm:rounded-2xl shadow-2xl border flex flex-col overflow-hidden">
+        <div className="fixed bottom-0 right-0 left-0 sm:bottom-24 sm:right-6 sm:left-auto z-50 w-full sm:w-96 h-[85dvh] sm:h-[580px] bg-white sm:rounded-2xl shadow-2xl border flex flex-col overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b bg-primary text-white">
             <span className="font-semibold text-sm">AI Housing Assistant</span>
             <button onClick={toggle}><X className="w-5 h-5" /></button>

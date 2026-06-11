@@ -1,9 +1,11 @@
+import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_db
+from core.redis import get_redis_dep
 from core.security import require_landlord, require_student_role
-from modules.housing.schemas import ListingCreate, ListingFilters, ListingOut, ListingUpdate
+from modules.housing.schemas import CompareRequest, ListingCompareItem, ListingCompareOut, ListingCreate, ListingFilters, ListingOut, ListingUpdate
 from modules.housing.service import HousingService
 
 router = APIRouter(prefix="/listings", tags=["listings"])
@@ -42,6 +44,19 @@ async def get_saved(
     svc: HousingService = Depends(_svc),
 ):
     return await svc.get_saved_listings(int(current_user["sub"]))
+
+
+@router.post("/compare", response_model=ListingCompareOut)
+async def compare_listings(
+    body: CompareRequest,
+    _: dict = Depends(require_student_role),
+    db: AsyncSession = Depends(get_db),
+    redis: aioredis.Redis = Depends(get_redis_dep),
+):
+    svc = HousingService(db)
+    items_raw = await svc.compare_listings(body.listing_ids, redis)
+    items = [ListingCompareItem(**r) for r in items_raw]
+    return ListingCompareOut(items=items)
 
 
 @router.get("/{listing_id}", response_model=ListingOut)

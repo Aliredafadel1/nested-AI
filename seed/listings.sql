@@ -7,18 +7,18 @@
 
 INSERT INTO users (id, email, password_hash, role) VALUES
     -- Landlords (6 total — 5 legitimate, 1 scammer for fraud testing)
-    (1, 'landlord@demo.com',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMzLMEFOwqFe6rQl2F9pCVoW4G', 'landlord'),
-    (3, 'khalil@demo.com',    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMzLMEFOwqFe6rQl2F9pCVoW4G', 'landlord'),
-    (4, 'mona@demo.com',      '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMzLMEFOwqFe6rQl2F9pCVoW4G', 'landlord'),
-    (5, 'georges@demo.com',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMzLMEFOwqFe6rQl2F9pCVoW4G', 'landlord'),
-    (6, 'rania@demo.com',     '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMzLMEFOwqFe6rQl2F9pCVoW4G', 'landlord'),
-    (7, 'scammer@demo.com',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMzLMEFOwqFe6rQl2F9pCVoW4G', 'landlord'),
+    (1, 'landlord@demo.com',  '$2b$12$MMTn8hX0rxuVGgABZlYDFORZTU4F4fbGnYEq.xZ0Q.IWh92wOLiIe', 'landlord'),
+    (3, 'khalil@demo.com',    '$2b$12$MMTn8hX0rxuVGgABZlYDFORZTU4F4fbGnYEq.xZ0Q.IWh92wOLiIe', 'landlord'),
+    (4, 'mona@demo.com',      '$2b$12$MMTn8hX0rxuVGgABZlYDFORZTU4F4fbGnYEq.xZ0Q.IWh92wOLiIe', 'landlord'),
+    (5, 'georges@demo.com',   '$2b$12$MMTn8hX0rxuVGgABZlYDFORZTU4F4fbGnYEq.xZ0Q.IWh92wOLiIe', 'landlord'),
+    (6, 'rania@demo.com',     '$2b$12$MMTn8hX0rxuVGgABZlYDFORZTU4F4fbGnYEq.xZ0Q.IWh92wOLiIe', 'landlord'),
+    (7, 'scammer@demo.com',   '$2b$12$MMTn8hX0rxuVGgABZlYDFORZTU4F4fbGnYEq.xZ0Q.IWh92wOLiIe', 'landlord'),
     -- Students (5 total — diverse preferences for roommate matching tests)
-    (2,  'jawad@demo.com',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMzLMEFOwqFe6rQl2F9pCVoW4G', 'student'),
-    (8,  'omar@demo.com',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMzLMEFOwqFe6rQl2F9pCVoW4G', 'student'),
-    (9,  'maya@demo.com',   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMzLMEFOwqFe6rQl2F9pCVoW4G', 'student'),
-    (10, 'karim@demo.com',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMzLMEFOwqFe6rQl2F9pCVoW4G', 'student'),
-    (11, 'sarah@demo.com',  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMzLMEFOwqFe6rQl2F9pCVoW4G', 'student')
+    (2,  'jawad@demo.com',   '$2b$12$MMTn8hX0rxuVGgABZlYDFORZTU4F4fbGnYEq.xZ0Q.IWh92wOLiIe', 'student'),
+    (8,  'omar@demo.com',   '$2b$12$MMTn8hX0rxuVGgABZlYDFORZTU4F4fbGnYEq.xZ0Q.IWh92wOLiIe', 'student'),
+    (9,  'maya@demo.com',   '$2b$12$MMTn8hX0rxuVGgABZlYDFORZTU4F4fbGnYEq.xZ0Q.IWh92wOLiIe', 'student'),
+    (10, 'karim@demo.com',  '$2b$12$MMTn8hX0rxuVGgABZlYDFORZTU4F4fbGnYEq.xZ0Q.IWh92wOLiIe', 'student'),
+    (11, 'sarah@demo.com',  '$2b$12$MMTn8hX0rxuVGgABZlYDFORZTU4F4fbGnYEq.xZ0Q.IWh92wOLiIe', 'student')
 ON CONFLICT (id) DO NOTHING;
 
 -- ─── LANDLORD PROFILES ────────────────────────────────────────────────────────

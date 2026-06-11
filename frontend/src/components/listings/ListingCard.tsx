@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom"
 import { Heart } from "lucide-react"
 import { ListingBadge } from "./ListingBadge"
+import { PhotoGallery } from "./PhotoGallery"
 import type { Listing } from "../../api/listings"
 import { useSaveListing, useUnsaveListing } from "../../api/listings"
 import { useAuthStore } from "../../stores/authStore"
@@ -20,10 +21,6 @@ export function ListingCard({ listing, highlighted, saved: initSaved }: Props) {
   const saveMut = useSaveListing()
   const unsaveMut = useUnsaveListing()
 
-  const photoUrl = listing.photos?.[0]
-    ? `http://localhost:9000/listing-photos/${listing.photos[0].minio_key}`
-    : null
-
   const toggleSave = (e: React.MouseEvent) => {
     e.stopPropagation()
     if (isSaved) { unsaveMut.mutate(listing.id); setIsSaved(false) }
@@ -38,16 +35,16 @@ export function ListingCard({ listing, highlighted, saved: initSaved }: Props) {
       onClick={() => navigate(`/listings/${listing.id}`)}
       id={`listing-${listing.id}`}
     >
-      <div className="relative h-40 bg-gray-100 rounded-t-xl overflow-hidden">
-        {photoUrl ? (
-          <img src={photoUrl} alt={listing.title} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-400 text-3xl">🏠</div>
-        )}
+      <div className="relative h-40 rounded-t-xl overflow-hidden">
+        <PhotoGallery
+          photos={listing.photos ?? []}
+          title={listing.title}
+          className="h-40"
+        />
         {user?.role === "student" && (
           <button
             onClick={toggleSave}
-            className="absolute top-2 right-2 p-1.5 bg-white/80 rounded-full hover:bg-white"
+            className="absolute top-2 right-2 p-1.5 bg-white/80 rounded-full hover:bg-white z-10"
           >
             <Heart className={`w-4 h-4 ${isSaved ? "fill-red-500 text-red-500" : "text-gray-400"}`} />
           </button>

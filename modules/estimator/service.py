@@ -10,7 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.config import settings
 from modules.area_intel.service import AreaIntelService
 from modules.estimator.repository import EstimatorRepository
-from modules.estimator.schemas import EstimateOut, EstimateRequest
+from core.features import electricity_reliability, livability_score, student_score
+from modules.estimator.schemas import AreaScores, CostBreakdown, EstimateOut, EstimateRequest, SimulateOut, SimulateRequest
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,62 @@ class EstimatorService:
             transport=transport,
             total_monthly=total,
             commute_minutes=commute_minutes,
+        )
+
+    async def simulate(self, user_id: int, req: SimulateRequest) -> SimulateOut:
+        area = await self._area_svc.get_by_id(req.neighbourhood_id)
+
+        generator = area.generator_cost or 40
+        transport_cost = (area.transport or 3) * 10
+        total = req.budget + generator + WATER_FIXED + INTERNET_FIXED + transport_cost
+
+        commute_minutes = await self._get_commute(req.neighbourhood_id, req.university_id)
+
+        elec_hours = float(area.electricity or 12)
+        gen_hours = 24.0 - elec_hours
+        elec_label = f"{elec_hours:.0f}h EDL · {gen_hours:.0f}h generator"
+
+        elec_rel = electricity_reliability(area.electricity)
+        liv = livability_score(area.electricity, area.internet, area.safety, area.transport)
+        stu = student_score(area.student_vibe, area.transport, area.safety, area.internet)
+
+        # Budget feasibility: compare total monthly vs 1.5× budget
+        if total <= req.budget * 1.15:
+            feasibility = "comfortable"
+        elif total <= req.budget * 1.40:
+            feasibility = "tight"
+        else:
+            feasibility = "over budget"
+
+        # Fit score: student_score weighted 60%, livability 40%
+        fit = round(stu * 0.6 + liv * 0.4, 3)
+
+        return SimulateOut(
+            neighbourhood_name=area.name,
+            neighbourhood_name_ar=area.name_ar,
+            area_scores=AreaScores(
+                electricity_hours=area.electricity,
+                electricity_reliability=elec_rel,
+                generator_cost=area.generator_cost,
+                internet=area.internet,
+                transport=area.transport,
+                safety=area.safety,
+                student_vibe=area.student_vibe,
+                livability_score=liv,
+                student_score=stu,
+            ),
+            cost_breakdown=CostBreakdown(
+                rent=req.budget,
+                generator=generator,
+                water=WATER_FIXED,
+                internet=INTERNET_FIXED,
+                transport=transport_cost,
+                total_monthly=total,
+            ),
+            commute_minutes=commute_minutes,
+            fit_score=fit,
+            electricity_label=elec_label,
+            budget_feasibility=feasibility,
         )
 
     async def _get_commute(
