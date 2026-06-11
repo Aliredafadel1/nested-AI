@@ -3,7 +3,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_db
 from core.security import require_student_role
-from modules.roommate.schemas import MatchOut, MessageCreate, MessageOut, RequestCreate, RequestOut, RequestRespond
+from modules.roommate.schemas import (
+    MatchOut,
+    MessageCreate,
+    MessageOut,
+    RequestCreate,
+    RequestOut,
+    RequestRespond,
+)
 from modules.roommate.service import RoommateService
 
 router = APIRouter(prefix="/roommate", tags=["roommate"])

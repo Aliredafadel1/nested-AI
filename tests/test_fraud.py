@@ -50,7 +50,7 @@ def test_fraud_report_new_listing_has_score():
     resp = client.get(f"/fraud/{listing_id}")
     assert resp.status_code == 200
     assert "score" in resp.json()
-    assert isinstance(resp.json()["score"], (int, float))
+    assert isinstance(resp.json()["score"], int | float)
 
 
 # ── Test 3: Non-existent listing returns score placeholder ────────────────────

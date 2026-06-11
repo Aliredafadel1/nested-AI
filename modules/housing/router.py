@@ -5,7 +5,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import get_db
 from core.redis import get_redis_dep
 from core.security import require_landlord, require_student_role
-from modules.housing.schemas import CompareRequest, ListingCompareItem, ListingCompareOut, ListingCreate, ListingFilters, ListingOut, ListingUpdate
+from modules.housing.schemas import (
+    CompareRequest,
+    ListingCompareItem,
+    ListingCompareOut,
+    ListingCreate,
+    ListingFilters,
+    ListingOut,
+    ListingUpdate,
+)
 from modules.housing.service import HousingService
 
 router = APIRouter(prefix="/listings", tags=["listings"])

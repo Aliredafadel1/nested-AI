@@ -125,8 +125,8 @@ class HousingService:
         return await self._repo.get_similar_listing_embeddings(listing_id, limit)
 
     async def compare_listings(self, listing_ids: list[int], redis) -> list[dict]:
-        from modules.area_intel.service import AreaIntelService
         from core.features import true_monthly_cost
+        from modules.area_intel.service import AreaIntelService
         area_svc = AreaIntelService(self._db, redis)
 
         results = []

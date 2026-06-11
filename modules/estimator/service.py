@@ -8,10 +8,17 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
+from core.features import electricity_reliability, livability_score, student_score
 from modules.area_intel.service import AreaIntelService
 from modules.estimator.repository import EstimatorRepository
-from core.features import electricity_reliability, livability_score, student_score
-from modules.estimator.schemas import AreaScores, CostBreakdown, EstimateOut, EstimateRequest, SimulateOut, SimulateRequest
+from modules.estimator.schemas import (
+    AreaScores,
+    CostBreakdown,
+    EstimateOut,
+    EstimateRequest,
+    SimulateOut,
+    SimulateRequest,
+)
 
 logger = logging.getLogger(__name__)
 

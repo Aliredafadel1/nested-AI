@@ -106,6 +106,7 @@ class UserService:
 
     async def forgot_password(self, email: str) -> None:
         import secrets
+
         from core.email import send_password_reset_email
         user = await self._repo.get_by_email(email)
         if not user:

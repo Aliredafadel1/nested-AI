@@ -1,6 +1,6 @@
 from fastapi import HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.roommate.repository import RoommateRepository
 from modules.roommate.schemas import MatchOut, MessageOut, RequestOut

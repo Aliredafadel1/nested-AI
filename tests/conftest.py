@@ -28,7 +28,6 @@ os.environ["ENVIRONMENT"] = "testing"
 import psycopg2
 import pytest
 
-
 # ── DB cleanup (synchronous, no asyncio.run()) ───────────────────────────────
 
 def pytest_configure(config):
