@@ -1,42 +1,164 @@
-# Production overrides — apply on top of docker-compose.yml:
-#   docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml up -d
-#
-# Changes from dev:
-#   - api: uvicorn with 4 workers, no --reload, no volume mount
-#   - frontend: serves pre-built dist via nginx
-#   - All debug flags off
-
 services:
-  api:
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4 --no-access-log
-    volumes: []          # no live code mount in production
-    environment:
-      ENV_FILE: ../.env.prod
-      ENVIRONMENT: production
 
-  worker-high:
-    environment:
-      ENVIRONMENT: production
-
-  worker-medium:
-    environment:
-      ENVIRONMENT: production
-
-  worker-low:
-    environment:
-      ENVIRONMENT: production
-
-  worker-beat:
-    environment:
-      ENVIRONMENT: production
-
-  frontend:
+  # ── Nginx: serves React build + proxies API ───────────────────────────────
+  nginx:
     build:
       context: ../frontend
       dockerfile: Dockerfile.prod
-    image: nestai-frontend-prod
     ports:
-      - "3000:80"
+      - "80:80"
     depends_on:
       - api
     restart: unless-stopped
+
+  # ── FastAPI (4 uvicorn workers, no hot-reload) ────────────────────────────
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: nestai-api
+    env_file: ../.env
+    environment:
+      ENVIRONMENT: production
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── PostgreSQL + pgvector ─────────────────────────────────────────────────
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../migrations:/migrations
+      - ../seed:/seed
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ── Redis ─────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # ── MinIO (object storage — public port needed for presigned URLs) ─────────
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+    env_file: ../.env
+    volumes:
+      - miniodata:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ── Celery workers (no volume mount — use built image) ────────────────────
+  worker-high:
+    image: nestai-api
+    env_file: ../.env
+    environment:
+      ENVIRONMENT: production
+    command: celery -A core.celery_config.celery_app worker -Q nestai:high -c 4 --loglevel=warning
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  worker-medium:
+    image: nestai-api
+    env_file: ../.env
+    environment:
+      ENVIRONMENT: production
+    command: celery -A core.celery_config.celery_app worker -Q nestai:medium -c 2 --loglevel=warning
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  worker-low:
+    image: nestai-api
+    env_file: ../.env
+    environment:
+      ENVIRONMENT: production
+    command: celery -A core.celery_config.celery_app worker -Q nestai:low -c 1 --loglevel=warning --max-memory-per-child=4000000
+    volumes:
+      - bge_model_cache:/root/.cache/huggingface
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  worker-beat:
+    image: nestai-api
+    env_file: ../.env
+    environment:
+      ENVIRONMENT: production
+    command: celery -A core.celery_config.celery_app beat --loglevel=warning
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  # ── One-shot bucket init (docker compose --profile init up minio-init) ─────
+  minio-init:
+    image: minio/mc
+    env_file: ../.env
+    entrypoint: >
+      /bin/sh -c "
+      sleep 5;
+      mc alias set nestai http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD;
+      mc mb -p nestai/listing-photos;
+      mc mb -p nestai/contracts;
+      mc mb -p nestai/audio;
+      mc mb -p nestai/avatars;
+      mc mb -p nestai/sftp-uploads;
+      mc anonymous set download nestai/listing-photos;
+      mc anonymous set download nestai/avatars;
+      exit 0;
+      "
+    depends_on:
+      minio:
+        condition: service_healthy
+    profiles:
+      - init
+
+  # ── Optional Celery dashboard (--profile monitoring) ──────────────────────
+  flower:
+    image: mher/flower
+    env_file: ../.env
+    command: celery --broker=${REDIS_URL} flower --port=5555
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+    profiles:
+      - monitoring
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
+  bge_model_cache:

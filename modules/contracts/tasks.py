@@ -110,7 +110,13 @@ def analyze_contract_async(contract_id: int) -> None:
             raw_screen = call_llm("parse_intent", screen_prompt, max_tokens=1500)
             flagged_clauses: list[dict] = []
             try:
-                parsed_screen = json.loads(raw_screen)
+                _s = raw_screen.strip()
+                if _s.startswith("```"):
+                    _s = _s.split("```", 2)[1]
+                    if _s.startswith("json"):
+                        _s = _s[4:]
+                    _s = _s.rsplit("```", 1)[0].strip()
+                parsed_screen = json.loads(_s)
                 if isinstance(parsed_screen, list):
                     flagged_clauses = [
                         c for c in parsed_screen
@@ -147,10 +153,16 @@ def analyze_contract_async(contract_id: int) -> None:
                 )
                 raw_analysis = call_llm(task_name, full_prompt, max_tokens=2000)
 
-            # Parse the deep-analysis response
+            # Parse the deep-analysis response (strip markdown code fences if present)
             analysis = {"risk_items": []}
             try:
-                parsed = json.loads(raw_analysis)
+                cleaned = raw_analysis.strip()
+                if cleaned.startswith("```"):
+                    cleaned = cleaned.split("```", 2)[1]
+                    if cleaned.startswith("json"):
+                        cleaned = cleaned[4:]
+                    cleaned = cleaned.rsplit("```", 1)[0].strip()
+                parsed = json.loads(cleaned)
                 if isinstance(parsed, dict) and "risk_items" in parsed:
                     items = parsed["risk_items"]
                     order = {"high": 0, "medium": 1, "low": 2}

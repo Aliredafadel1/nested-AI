@@ -41,7 +41,7 @@ class ContractsRepository:
         from sqlalchemy import text
         await self._db.execute(
             text(
-                "UPDATE contracts SET ocr_used = :ocr, analysis = :analysis::jsonb, "
+                "UPDATE contracts SET ocr_used = :ocr, analysis = CAST(:analysis AS JSONB), "
                 "status = :status WHERE id = :id"
             ),
             {
