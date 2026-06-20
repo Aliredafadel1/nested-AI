@@ -1,3 +1,4 @@
+import asyncio
 from datetime import timedelta
 
 import redis.asyncio as aioredis
@@ -32,9 +33,10 @@ class UserService:
         if existing:
             raise HTTPException(status_code=400, detail="Email already registered.")
 
+        password_hash = await asyncio.to_thread(hash_password, req.password)
         user = await self._repo.create(
             email=req.email,
-            password_hash=hash_password(req.password),
+            password_hash=password_hash,
             role=req.role,
         )
         if req.role == "landlord":
@@ -51,7 +53,8 @@ class UserService:
 
     async def login(self, req: LoginRequest):
         user = await self._repo.get_by_email(req.email)
-        if not user or not verify_password(req.password, user.password_hash):
+        password_ok = user and await asyncio.to_thread(verify_password, req.password, user.password_hash)
+        if not password_ok:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials.")
 
         access_token = create_access_token(user.id, user.role)
@@ -121,7 +124,8 @@ class UserService:
         if not user_id_str:
             raise HTTPException(status_code=400, detail="Reset token is invalid or has expired.")
         await self._redis.delete(RedisKeys.reset_token(token))
-        await self._repo.update_password(int(user_id_str), hash_password(new_password))
+        new_hash = await asyncio.to_thread(hash_password, new_password)
+        await self._repo.update_password(int(user_id_str), new_hash)
 
     async def get_me(self, user_id: int, role: str):
         from modules.users.schemas import StudentProfileOut, UserMeOut
