@@ -422,7 +422,9 @@ def test_transcribe_audio_tool_with_invalid_bytes():
 
 def test_transcribe_audio_tool_is_synchronous():
     import inspect
+
     from modules.agent.tools import transcribe_audio_tool
+
     # This tool must be sync (wraps a sync LLM router call)
     assert not inspect.iscoroutinefunction(transcribe_audio_tool)
 
@@ -458,8 +460,8 @@ async def test_survival_search_result_schema():
 async def test_survival_search_respects_limit():
     engine, db = await _open_db()
     try:
-        from modules.agent.repository import AgentRepository
         from core.embeddings import embed_text
+        from modules.agent.repository import AgentRepository
         repo = AgentRepository(db)
         vec = embed_text("water delivery Beirut")
         results = await repo.search_rag_chunks(vec, limit=2)
