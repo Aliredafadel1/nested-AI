@@ -23,8 +23,6 @@ export function ContractsPage() {
   const upload   = useUploadContract()
   const { data: contract, isError } = useContract(contractId)
 
-  if (user?.role !== "student") return <Navigate to="/listings" replace />
-
   const handleFile = (file: File) => {
     setStepIdx(0)
     setStartedAt(Date.now())
@@ -47,6 +45,8 @@ export function ContractsPage() {
     }, 500)
     return () => clearInterval(interval)
   }, [analyzing, startedAt, stepIdx])
+
+  if (user?.role !== "student") return <Navigate to="/listings" replace />
 
   const ocrRunning = contract?.status === "ocr_running"
   const currentLabel = ocrRunning
