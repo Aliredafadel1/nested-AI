@@ -17,21 +17,38 @@ bearer_scheme = HTTPBearer(auto_error=False)
 
 _INJECTION_PATTERNS = [
     re.compile(p, re.IGNORECASE) for p in [
-        r"ignore\s+(all\s+)?(previous|prior|above)\s+instructions",
-        r"disregard\s+(all\s+)?(previous|prior)\s+instructions",
-        r"forget\s+(all\s+)?(previous|prior)\s+instructions",
-        r"you\s+are\s+now\s+a\s+different",
+        # Explicit instruction overrides
+        r"ignore\s+(all\s+)?(previous|prior|above)\s+(instructions?|prompt|context)",
+        r"disregard\s+(all\s+)?(previous|prior|above)\s+(instructions?|prompt|context)",
+        r"forget\s+(all\s+)?(previous|prior|above|every(thing)?)\s*(instructions?|prompt|context|above|you.{0,20}told)?",
+        r"do\s+not\s+follow\s+(your\s+)?(previous|prior|original)\s+instructions?",
+        # Persona hijacking
+        r"you\s+are\s+now\s+(a\s+)?(different|new|another|evil|uncensored)",
         r"act\s+as\s+(if\s+you\s+are\s+)?a\s+different",
         r"pretend\s+(you\s+are|to\s+be)",
         r"roleplay\s+as",
-        r"system\s*:\s*you\s+are",
+        r"from\s+now\s+on\s+(you\s+are|act|behave|respond)",
+        r"your\s+(new\s+)?(role|persona|identity|instructions?)\s+(is|are)",
+        # System prompt injection markers
+        r"system\s*:\s*(you\s+are|your\s+role|ignore)",
         r"\[system\]",
         r"<\|im_start\|>",
         r"<\|im_end\|>",
-        r"###\s+instruction",
-        r"new\s+instructions\s*:",
-        r"override\s+(safety|guidelines|rules)",
+        r"###\s+instructions?",
+        r"<system>",
+        r"\bprompt\s*:\s*",
+        # Instruction injection delimiters
+        r"new\s+instructions?\s*:",
+        r"updated?\s+instructions?\s*:",
+        r"override\s+(safety|guidelines?|rules?|instructions?|prompt)",
+        # Exfiltration attempts
+        r"(print|repeat|show|reveal|output|display)\s+(your\s+)?(system\s+prompt|instructions?|initial\s+prompt|context)",
+        r"what\s+(are\s+your|is\s+your)\s+(system\s+prompt|instructions?|initial\s+prompt)",
+        # Known jailbreak vocabulary
         r"jailbreak",
+        r"dan\s+mode",
+        r"developer\s+mode",
+        r"god\s+mode",
     ]
 ]
 

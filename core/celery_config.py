@@ -55,5 +55,9 @@ celery_app.conf.update(
             "task": "modules.housing.tasks.batch_embed_seed_data",
             "schedule": crontab(minute="*/10"),
         },
+        "seed-rag-embeddings-daily": {
+            "task": "modules.agent.tasks.seed_rag_embeddings",
+            "schedule": crontab(hour="3", minute="0"),  # 3 AM Beirut time — catch any null chunks
+        },
     },
 )

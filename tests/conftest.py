@@ -113,6 +113,7 @@ def persistent_test_clients():
         "tests.test_agent_flow",
         "tests.test_fraud",
         "tests.test_contracts",
+        "tests.test_agent_tools",
     ]
     clients = []
     for name in test_module_names:
