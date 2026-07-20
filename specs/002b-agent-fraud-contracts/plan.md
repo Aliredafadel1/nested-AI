@@ -2,7 +2,7 @@
 
 **Status**: Ready to implement
 **Based on**: specs/002b-agent-fraud-contracts/spec.md (clarified 2026-06-06)
-**Depends on**: Phase 2a complete — BGE-M3 embeddings, roommate module
+**Depends on**: Phase 2a complete — MiniLM embeddings, roommate module
 
 ---
 
@@ -270,12 +270,12 @@ All task names are already in `TASK_TIERS`. Zero new additions to the dict.
 | `analyze_contract` | powerful | Claude Sonnet | contracts.tasks text-PDF path |
 | `ocr_analyze_contract` | powerful | Claude Sonnet | contracts.tasks OCR path |
 | `summarize_session` | cheap | GPT-4o mini | agent session end summary |
-| `embed_query` | free | BGE-M3 | agent search_listings tool |
-| `embed_rag_chunk` | free | BGE-M3 | agent.tasks index_rag_chunk |
+| `embed_query` | free | MiniLM | agent search_listings tool |
+| `embed_rag_chunk` | free | MiniLM | agent.tasks index_rag_chunk |
 
 ### Required `core/llm_router.py` updates (4 changes)
 
-1. **Fix `_call_free`**: Replace inline `SentenceTransformer("BAAI/bge-m3")` load with
+1. **Fix `_call_free`**: Replace inline `SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")` load with
    `from core.embeddings import embed_text; return embed_text(prompt)`.
    This makes free-tier use the worker-level singleton, not load per-call.
 

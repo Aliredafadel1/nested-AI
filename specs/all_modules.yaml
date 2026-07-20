@@ -117,7 +117,7 @@ modules:
       - Landlords may only edit/delete their own listings
 
   roommate:
-    description: Compatibility matching with 5-dimension BGE-M3 sub-embeddings
+    description: Compatibility matching with 5-dimension MiniLM sub-embeddings
     tables:
       - roommate_requests
     endpoints:
@@ -270,8 +270,22 @@ modules:
       - SSE backed exclusively by Redis pub/sub (no polling)
 
   reputation:
-    description: Landlord reviews — implemented in Phase 3
+    description: Landlord reviews — 4-dimension ratings (maintenance, responsiveness, honesty, hidden_fees) with aggregate scores
     tables:
       - landlord_reviews
-    endpoints: []
-    status: pending_phase_3
+    endpoints:
+      - method: GET
+        path: /reputation/{landlord_id}
+        auth: none
+        response: "{landlord_id: int, review_count: int, avg_maintenance: float|null, avg_responsiveness: float|null, avg_honesty: float|null, avg_hidden_fees: float|null, avg_overall: float|null, reviews: list[object]}"
+        status: 200
+        errors: [404]
+      - method: POST
+        path: /reputation/{landlord_id}/reviews
+        auth: bearer(student)
+        response: "{id: int, landlord_id: int, reviewer_id: int, listing_id: int|null, maintenance: int|null, responsiveness: int|null, honesty: int|null, hidden_fees: int|null, ai_summary: string|null, created_at: datetime}"
+        status: 201
+        errors: [400, 404, 409, 422]
+    invariants:
+      - One review per (landlord_id, reviewer_id, listing_id) — enforced by DB unique constraint
+      - Reviewer cannot review themselves

@@ -18,6 +18,13 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 3000,
+    watch: {
+      // Docker Desktop bind mounts (Windows host -> Linux container) don't
+      // reliably deliver inotify events, so chokidar's default watcher can
+      // silently miss host-side edits. Polling guarantees changes are seen.
+      usePolling: true,
+      interval: 300,
+    },
     proxy: {
       '/auth':          API_TARGET,
       '/users':         API_TARGET,

@@ -10,21 +10,25 @@ class RoommateRepository:
         self._db = db
 
     async def get_matches(self, current_user_id: int, dim_vectors: dict) -> list[MatchOut]:
+        # pgvector `<=>` returns cosine distance in [0, 2], so `1 - distance` is
+        # cosine similarity in [-1, 1]. GREATEST(0, ...) floors negative/orthogonal
+        # similarity at 0 so every dimension score stays in [0, 1] per spec (SC-003)
+        # without inflating "not compatible" pairs into a false-medium ~0.5 score.
         sql = text("""
             SELECT
                 sp.user_id,
                 ROUND(CAST((
-                    (1 - (dim_sleep       <=> CAST(:sv_sleep       AS vector)))
-                  + (1 - (dim_study       <=> CAST(:sv_study       AS vector)))
-                  + (1 - (dim_cleanliness <=> CAST(:sv_cleanliness AS vector)))
-                  + (1 - (dim_guests      <=> CAST(:sv_guests      AS vector)))
-                  + (1 - (dim_budget      <=> CAST(:sv_budget      AS vector)))
+                    GREATEST(0, 1 - (dim_sleep       <=> CAST(:sv_sleep       AS vector)))
+                  + GREATEST(0, 1 - (dim_study       <=> CAST(:sv_study       AS vector)))
+                  + GREATEST(0, 1 - (dim_cleanliness <=> CAST(:sv_cleanliness AS vector)))
+                  + GREATEST(0, 1 - (dim_guests      <=> CAST(:sv_guests      AS vector)))
+                  + GREATEST(0, 1 - (dim_budget      <=> CAST(:sv_budget      AS vector)))
                 ) / 5.0 AS numeric), 4)                                      AS score,
-                ROUND(CAST(1 - (dim_sleep       <=> CAST(:sv_sleep       AS vector)) AS numeric), 4) AS sleep,
-                ROUND(CAST(1 - (dim_study       <=> CAST(:sv_study       AS vector)) AS numeric), 4) AS study,
-                ROUND(CAST(1 - (dim_cleanliness <=> CAST(:sv_cleanliness AS vector)) AS numeric), 4) AS cleanliness,
-                ROUND(CAST(1 - (dim_guests      <=> CAST(:sv_guests      AS vector)) AS numeric), 4) AS guests,
-                ROUND(CAST(1 - (dim_budget      <=> CAST(:sv_budget      AS vector)) AS numeric), 4) AS budget
+                ROUND(CAST(GREATEST(0, 1 - (dim_sleep       <=> CAST(:sv_sleep       AS vector))) AS numeric), 4) AS sleep,
+                ROUND(CAST(GREATEST(0, 1 - (dim_study       <=> CAST(:sv_study       AS vector))) AS numeric), 4) AS study,
+                ROUND(CAST(GREATEST(0, 1 - (dim_cleanliness <=> CAST(:sv_cleanliness AS vector))) AS numeric), 4) AS cleanliness,
+                ROUND(CAST(GREATEST(0, 1 - (dim_guests      <=> CAST(:sv_guests      AS vector))) AS numeric), 4) AS guests,
+                ROUND(CAST(GREATEST(0, 1 - (dim_budget      <=> CAST(:sv_budget      AS vector))) AS numeric), 4) AS budget
             FROM student_profiles sp
             WHERE sp.user_id != :current_user_id
               AND sp.dim_sleep IS NOT NULL

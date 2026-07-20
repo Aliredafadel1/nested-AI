@@ -10,7 +10,7 @@
 
 **Purpose**: DB schema changes and Celery wiring that block all user story work.
 
-- [ ] T001 Create `migrations/002a_add_profile_dim_vectors.sql` — `ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS dim_sleep/study/cleanliness/guests/budget vector(1024)` + 5 HNSW indexes
+- [ ] T001 Create `migrations/002a_add_profile_dim_vectors.sql` — `ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS dim_sleep/study/cleanliness/guests/budget vector(384)` + 5 HNSW indexes
 - [ ] T002 Apply migration: `docker compose exec db psql -U nestai -d nestai -f /migrations/002a_add_profile_dim_vectors.sql`
 - [ ] T003 [P] Add `embed_cache` and `embed_lock` key methods to `core/redis.py` `RedisKeys` class
 - [ ] T004 [P] Update `core/celery_config.py` to include `modules.housing.tasks` and `modules.users.tasks` in `include=` list and register `batch_embed_seed_data` beat task (nightly, `nestai:low`)
@@ -19,26 +19,26 @@
 
 ---
 
-## Phase 2: Foundational — BGE-M3 Core (Blocks US1 + US2)
+## Phase 2: Foundational — MiniLM Core (Blocks US1 + US2)
 
-**Purpose**: Replace the `core/embeddings.py` stub with the full BGE-M3 implementation. Both embedding task modules depend on this.
+**Purpose**: Replace the `core/embeddings.py` stub with the full MiniLM implementation. Both embedding task modules depend on this.
 
-- [ ] T005 Implement `core/embeddings.py` — full BGE-M3 replacement:
+- [ ] T005 Implement `core/embeddings.py` — full MiniLM replacement:
   - Module-level `_model = None`
-  - `_load_model()`: `SentenceTransformer("BAAI/bge-m3")`, sets `_model`, logs `"BGE-M3 model loaded"` at INFO
+  - `_load_model()`: `SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")`, sets `_model`, logs `"MiniLM model loaded"` at INFO
   - `worker_process_init` signal: calls `_load_model()` once at worker startup
-  - `embed_text(text, normalize=True) -> list[float]`: calls `_model.encode()`, asserts `len(vec) == 1024`, returns list
-  - `embed_batch(texts, normalize=True) -> list[list[float]]`: batch encode, assert each 1024-dim
+  - `embed_text(text, normalize=True) -> list[float]`: calls `_model.encode()`, asserts `len(vec) == 384`, returns list
+  - `embed_batch(texts, normalize=True) -> list[list[float]]`: batch encode, assert each 384-dim
   - Redis cache check/write in both functions using `RedisKeys.embed_cache(sha256(text)[:16])`, 48h TTL
   - Raises `NotImplementedError` if `_model is None` (worker not initialised yet)
 
-**Checkpoint**: `from core.embeddings import embed_text; embed_text("test")` works inside `worker-low` container. Logs show exactly one `"BGE-M3 model loaded"` line per worker process.
+**Checkpoint**: `from core.embeddings import embed_text; embed_text("test")` works inside `worker-low` container. Logs show exactly one `"MiniLM model loaded"` line per worker process.
 
 ---
 
 ## Phase 3: User Story 1 — Listings Embedded Automatically (P1)
 
-**Goal**: Every listing create/update triggers a background BGE-M3 embed. `listings.embedding` is never stale.
+**Goal**: Every listing create/update triggers a background MiniLM embed. `listings.embedding` is never stale.
 
 **Independent Test**: POST listing → wait 5s → `SELECT embedding IS NOT NULL FROM listings WHERE id = ?` returns `t`.
 
@@ -48,7 +48,7 @@
     - Load listing via `HousingRepository(db).get_by_id(listing_id)` — return cleanly if None (deleted)
     - Fetch neighbourhood name via raw SQL or join
     - Build text: `"{title}. {description}. Neighbourhood: {neighbourhood_name}. Amenities: {amenity_keys_joined}"`
-    - Call `embed_text(text)` → 1024-dim vector
+    - Call `embed_text(text)` → 384-dim vector
     - Write vector: `await repo.update_embedding(listing_id, vector)`
     - `autoretry_for=(Exception,)`, `max_retries=3`, `retry_backoff=True`
   - `batch_embed_seed_data()` Celery task on queue `nestai:low`:
@@ -133,9 +133,9 @@
 **Goal**: All SC-001 acceptance criteria verified programmatically.
 
 - [ ] T020 Create `tests/test_embeddings.py` with the following test cases:
-  - `test_embed_text_dimension`: `embed_text("test")` returns list of length 1024
+  - `test_embed_text_dimension`: `embed_text("test")` returns list of length 384
   - `test_embed_text_normalized`: cosine similarity of a vector with itself ≈ 1.0
-  - `test_embed_batch_efficiency`: `embed_batch(["a","b","c"])` returns 3 vectors, all 1024-dim
+  - `test_embed_batch_efficiency`: `embed_batch(["a","b","c"])` returns 3 vectors, all 384-dim
   - `test_profile_all_6_vectors_populated`: POST onboarding → wait → assert all 6 columns non-null
   - `test_listing_embedding_on_create`: POST listing → wait → `embedding IS NOT NULL`
   - `test_listing_embedding_on_update`: PUT listing → new embed task queued
@@ -151,7 +151,7 @@
 
 - [ ] T021 [P] Run spec validator: `docker compose --profile spec run spec-validator` — must exit 0
 - [ ] T022 [P] Run Phase 1 regression: `docker compose exec api pytest tests/test_api_listings.py -v` — all pass (no regressions from service.py changes)
-- [ ] T023 [P] Verify BGE-M3 loads once: `docker compose logs worker-low | grep "BGE-M3"` — exactly 1 line per worker process
+- [ ] T023 [P] Verify MiniLM loads once: `docker compose logs worker-low | grep "MiniLM"` — exactly 1 line per worker process
 - [ ] T024 [P] Trigger batch seed embed: `embed_listing.delay()` for all 50 seed listings — verify `COUNT(*) WHERE embedding IS NOT NULL = 50`
 
 ---
@@ -163,7 +163,7 @@ T001→T002 (migration applied)
      ↓
 T003, T004 [parallel]
      ↓
-T005 (BGE-M3 core — blocks T006, T009)
+T005 (MiniLM core — blocks T006, T009)
      ↓
 ┌────────────────────┬──────────────────────┐
 │  US1 (T006→T008)  │   US2 (T009→T011)   │
@@ -192,7 +192,7 @@ T013  # roommate/schemas.py
 # Phase 7 — run together:
 T021  # spec-validator
 T022  # regression test suite
-T023  # BGE-M3 load verification
+T023  # MiniLM load verification
 T024  # batch seed embed
 ```
 
@@ -201,7 +201,7 @@ T024  # batch seed embed
 ## Implementation Strategy
 
 ### MVP (US1 + US2 only — embeddings working)
-1. T001 → T005 (setup + BGE-M3 core)
+1. T001 → T005 (setup + MiniLM core)
 2. T006 → T008 (US1 listing embeddings)
 3. T009 → T011 (US2 profile embeddings)
 4. Validate: all seed listings embedded, Jawad's profile has 6 vectors

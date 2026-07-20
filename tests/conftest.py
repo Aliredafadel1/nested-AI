@@ -36,14 +36,15 @@ def pytest_configure(config):
 
 
 def _flush_redis_rate_keys():
-    """Delete all rate:ip:* and rate:llm:* keys so leftover counts from prior
-    runs can't trip the rate limiter or LLM daily limits during the current
-    test session."""
+    """Delete all rate:ip:*, rate:llm:*, and intent:* keys so leftover state from
+    prior runs can't trip the rate limiter/LLM daily limits or serve a stale
+    cached parse_intent result (e.g. from a real LLM call in an earlier session)
+    to a test that mocks call_llm and expects its own intent to be used."""
     import redis as syncredis
     redis_url = os.environ.get("REDIS_URL", "redis://redis:6379/0")
     try:
         r = syncredis.from_url(redis_url, decode_responses=True)
-        for pattern in ("rate:ip:*", "rate:llm:*"):
+        for pattern in ("rate:ip:*", "rate:llm:*", "intent:*"):
             keys = r.keys(pattern)
             if keys:
                 r.delete(*keys)

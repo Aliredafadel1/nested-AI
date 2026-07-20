@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 TASK_TIERS: dict[str, str] = {
-    # free tier (BGE-M3 local)
+    # free tier (MiniLM local)
     "embed_listing":              "free",
     "embed_profile":              "free",
     "embed_query":                "free",
@@ -42,7 +42,7 @@ TIER_MODELS: dict[str, str] = {
     "powerful": "claude-sonnet-4-6",
     "arabic":   "claude-sonnet-4-6",   # Claude handles Lebanese dialect reliably
     "cheap":    "llama-3.1-8b-instant",
-    "free":     "bge-m3",
+    "free":     "paraphrase-multilingual-MiniLM-L12-v2",
 }
 
 # System prompt injected for every Arabic-tier call
@@ -128,7 +128,7 @@ def _call_groq(model: str, prompt: str, **kwargs) -> str:
 
 
 def _call_free(prompt: str, **kwargs) -> list[float]:
-    """Delegates to the worker-level BGE-M3 singleton in core.embeddings."""
+    """Delegates to the worker-level MiniLM embedding singleton in core.embeddings."""
     from core.embeddings import embed_text
     return embed_text(prompt)
 
@@ -318,23 +318,31 @@ def stream_llm(task: str, prompt: str, **kwargs) -> Iterator[str]:
 # ---------------------------------------------------------------------------
 
 def ocr_pdf_page(img_b64: str) -> str:
-    """OCR a single PDF page image via Groq vision. Routed here to satisfy no-SDK-outside-llm_router."""
+    """OCR a single PDF page image via Claude Sonnet vision. Routed here to satisfy
+    no-SDK-outside-llm_router.
+
+    2026-07-21: previously used Groq vision (meta-llama/llama-4-scout-17b-16e-instruct),
+    which this account's Groq API key no longer has access to (404 model_not_found —
+    confirmed via GET /openai/v1/models, no vision-capable model is currently available
+    on this account). Switched to Claude Sonnet, which is already the powerful tier's
+    primary model and confirmed working.
+    """
     try:
-        client = _groq_client()
-        response = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
-            max_tokens=1000,
+        client = _anthropic_client()
+        response = client.messages.create(
+            model=TIER_MODELS["powerful"],
+            max_tokens=1500,
             messages=[{
                 "role": "user",
                 "content": [
+                    {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": img_b64}},
                     {"type": "text", "text": "Extract all text from this lease contract page verbatim. Return only the text, no commentary."},
-                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}},
                 ],
             }],
         )
-        return response.choices[0].message.content or ""
+        return response.content[0].text or ""
     except Exception as e:
-        logger.error("ocr_pdf_page | Groq vision failed: %s", e)
+        logger.error("ocr_pdf_page | Claude vision failed: %s", e)
         return ""
 
 

@@ -1,10 +1,10 @@
 # Research: Phase 2a — Embeddings + Roommate Matching
 
-## BGE-M3 via sentence-transformers
+## MiniLM via sentence-transformers
 
-**Decision**: Use `SentenceTransformer("BAAI/bge-m3")` from the `sentence-transformers` library.
+**Decision**: Use `SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")` from the `sentence-transformers` library. (2026-07-20: this spec originally called for `BAAI/bge-m3`; the shipped code has always used MiniLM instead — see spec.md's 2026-07-20 clarification. This section now documents what's actually running.)
 
-**Rationale**: Already in `requirements.txt`. `encode()` returns numpy arrays, normalise with `normalize_embeddings=True` to get unit vectors — cosine similarity then equals dot product. BGE-M3 natively handles Arabic, French, and English — no preprocessing needed.
+**Rationale**: Already in `requirements.txt`. `encode()` returns numpy arrays, normalise with `normalize_embeddings=True` to get unit vectors — cosine similarity then equals dot product. The multilingual MiniLM checkpoint handles Arabic, French, and English — no preprocessing needed. It's also far smaller than BGE-M3 (~100MB vs ~2GB), which keeps the `worker-low` image and cold-start time down at the cost of some retrieval quality.
 
 **Worker init pattern**:
 ```python
@@ -17,7 +17,7 @@ def load_model(**kwargs):
 ```
 `_load_model()` sets a module-level `_model` variable. Subsequent calls to `embed_text()` use it without reloading.
 
-**Model cache**: HuggingFace caches to `~/.cache/huggingface/hub/` by default. In Docker, the `worker-low` service mounts `bge_model_cache:/root/.cache/huggingface` — weights persist across container restarts.
+**Model cache**: HuggingFace caches to `~/.cache/huggingface/hub/` by default. In Docker, the `worker-low` service mounts `bge_model_cache:/root/.cache/huggingface` (volume name predates this correction, left as-is to avoid an unnecessary infra rename) — weights persist across container restarts.
 
 ---
 
@@ -43,7 +43,7 @@ def load_model(**kwargs):
 
 **Decision**: Redis SET NX with 30s TTL on key `lock:embed:{listing_id}`.
 
-**Rationale**: Without a lock, two simultaneous creates (or a create + update race) could double-queue the same listing's embed task. The lock ensures only one task writes the vector at a time. 30s is conservative — BGE-M3 inference on a 300-token listing takes <2s on CPU.
+**Rationale**: Without a lock, two simultaneous creates (or a create + update race) could double-queue the same listing's embed task. The lock ensures only one task writes the vector at a time. 30s is conservative — MiniLM inference on a 300-token listing takes well under 2s on CPU.
 
 ---
 
@@ -57,23 +57,25 @@ def load_model(**kwargs):
 ```sql
 SELECT
     sp.user_id,
-    ROUND(((1 - (dim_sleep      <=> :sv_sleep))
-         + (1 - (dim_study      <=> :sv_study))
-         + (1 - (dim_cleanliness<=> :sv_clean))
-         + (1 - (dim_guests     <=> :sv_guests))
-         + (1 - (dim_budget     <=> :sv_budget))) / 5.0, 4) AS score,
-    (1 - (dim_sleep       <=> :sv_sleep))       AS sleep,
-    (1 - (dim_study       <=> :sv_study))       AS study,
-    (1 - (dim_cleanliness <=> :sv_clean))       AS cleanliness,
-    (1 - (dim_guests      <=> :sv_guests))      AS guests,
-    (1 - (dim_budget      <=> :sv_budget))      AS budget
+    ROUND((GREATEST(0, 1 - (dim_sleep      <=> :sv_sleep))
+         + GREATEST(0, 1 - (dim_study      <=> :sv_study))
+         + GREATEST(0, 1 - (dim_cleanliness<=> :sv_clean))
+         + GREATEST(0, 1 - (dim_guests     <=> :sv_guests))
+         + GREATEST(0, 1 - (dim_budget     <=> :sv_budget))) / 5.0, 4) AS score,
+    GREATEST(0, 1 - (dim_sleep       <=> :sv_sleep))       AS sleep,
+    GREATEST(0, 1 - (dim_study       <=> :sv_study))       AS study,
+    GREATEST(0, 1 - (dim_cleanliness <=> :sv_clean))       AS cleanliness,
+    GREATEST(0, 1 - (dim_guests      <=> :sv_guests))      AS guests,
+    GREATEST(0, 1 - (dim_budget      <=> :sv_budget))      AS budget
 FROM student_profiles sp
 WHERE sp.user_id != :current_user_id
   AND sp.dim_sleep IS NOT NULL
 ORDER BY score DESC
 LIMIT 20;
 ```
-Cosine similarity = 1 − cosine distance. pgvector `<=>` returns distance (0=identical, 2=opposite).
+Cosine similarity = 1 − cosine distance. pgvector `<=>` returns distance in `[0, 2]` (0=identical, 2=opposite), so raw similarity ranges `[-1, 1]`.
+
+**Correction (2026-07-21)**: the first shipped version omitted `GREATEST(0, …)`, so orthogonal/negative-similarity pairs returned negative dimension scores — found during a full-system test pass. Spec SC-003 requires every dimension in `[0, 1]`; flooring at 0 (rather than rescaling the whole range with `(sim+1)/2`) was chosen because it keeps a "not compatible" dimension reading as ~0 instead of inflating it to a false-medium ~0.5, and it doesn't disturb `test_opposite_sleep_low_score`'s existing `< 0.4` assertion for orthogonal test vectors.
 
 ---
 

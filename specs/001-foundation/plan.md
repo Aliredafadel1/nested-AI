@@ -46,7 +46,7 @@ nestai/
 │   ├── security.py       # JWT + bcrypt + rate limit middleware + injection sanitizer
 │   ├── logging.py        # structlog + RequestIDMiddleware
 │   ├── celery_config.py  # 4 queues + 8 Beat tasks
-│   ├── embeddings.py     # BGE-M3 stub (implemented in Phase 2a)
+│   ├── embeddings.py     # MiniLM stub (implemented in Phase 2a)
 │   └── llm_router.py     # LLM router stub (implemented in Phase 2b)
 ├── modules/
 │   ├── users/            # register, login, refresh, logout, onboarding

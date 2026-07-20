@@ -16,6 +16,7 @@ from modules.estimator.router import router as estimator_router
 from modules.fraud.router import router as fraud_router
 from modules.housing.router import router as housing_router
 from modules.notifications.router import router as notifications_router
+from modules.reputation.router import router as reputation_router
 from modules.roommate.router import router as roommate_router
 from modules.users.router import router as users_router
 
@@ -66,6 +67,7 @@ app.include_router(contracts_router)
 app.include_router(area_intel_router)
 app.include_router(estimator_router)
 app.include_router(notifications_router)
+app.include_router(reputation_router)
 
 
 @app.get("/health", tags=["health"])

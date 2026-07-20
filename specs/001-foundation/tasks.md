@@ -30,7 +30,7 @@
 - [ ] T012 Create `core/security.py` (JWT HS256 + bcrypt 12 + rate limit middleware + injection sanitizer)
 - [ ] T013 [P] Create `core/logging.py` (structlog JSON + RequestIDMiddleware)
 - [ ] T014 [P] Create `core/celery_config.py` (4 queues + 8 Beat tasks)
-- [ ] T015 [P] Create `core/embeddings.py` (BGE-M3 stub — raises NotImplementedError until Phase 2a)
+- [ ] T015 [P] Create `core/embeddings.py` (MiniLM stub — raises NotImplementedError until Phase 2a)
 - [ ] T016 [P] Create `core/llm_router.py` (stub — raises NotImplementedError until Phase 2b)
 
 ---

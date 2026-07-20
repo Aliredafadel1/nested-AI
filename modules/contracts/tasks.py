@@ -9,6 +9,69 @@ logger = logging.getLogger(__name__)
 
 CONTRACT_CACHE_TTL = 24 * 3600   # cached analyses live 24 h
 MAX_CLAUSES_FOR_DEEP = 12        # Sonnet only sees up to this many flagged clauses
+DEEP_DIVE_BATCH_SIZE = 4         # clauses per deep-dive call — keeps each response well
+                                 # under any max_tokens ceiling regardless of contract size
+
+
+def _strip_code_fence(text: str) -> str:
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.split("```", 2)[1]
+        if cleaned.startswith("json"):
+            cleaned = cleaned[4:]
+        cleaned = cleaned.rsplit("```", 1)[0].strip()
+    return cleaned
+
+
+def _extract_risk_items(raw: str) -> list[dict]:
+    """Parse a risk_items JSON response, recovering as much as possible from a
+    response truncated mid-object (e.g. hit a max_tokens ceiling) instead of
+    discarding the whole batch or leaking raw JSON text into the UI.
+    """
+    cleaned = _strip_code_fence(raw)
+
+    try:
+        parsed = json.loads(cleaned)
+        if isinstance(parsed, dict) and isinstance(parsed.get("risk_items"), list):
+            return [i for i in parsed["risk_items"] if isinstance(i, dict)]
+    except Exception:
+        pass
+
+    # Truncated response recovery: walk the array and keep only objects whose
+    # braces fully balance before the cut-off point.
+    start = cleaned.find("[")
+    if start == -1:
+        return []
+    depth = 0
+    last_complete_end = -1
+    in_string = False
+    escape = False
+    for i, ch in enumerate(cleaned[start:], start):
+        if escape:
+            escape = False
+            continue
+        if ch == "\\":
+            escape = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                last_complete_end = i
+    if last_complete_end == -1:
+        return []
+    salvageable = cleaned[start:last_complete_end + 1] + "]"
+    try:
+        items = json.loads(salvageable)
+        return [i for i in items if isinstance(i, dict)]
+    except Exception:
+        return []
 
 
 @celery_app.task(
@@ -126,24 +189,39 @@ def analyze_contract_async(contract_id: int) -> None:
                 # Screening failed — fall back to full single-pass below
                 flagged_clauses = []
 
-            # Pass 2 (powerful — Claude Sonnet): deep-dive flagged clauses only.
+            # Pass 2 (powerful — Claude Sonnet): deep-dive flagged clauses only,
+            # in small batches so no single response can be big enough to hit a
+            # max_tokens ceiling and get truncated mid-JSON.
+            task_name = "ocr_analyze_contract" if ocr_used else "analyze_contract"
+            all_items: list[dict] = []
+
             if flagged_clauses:
-                clauses_text = json.dumps(flagged_clauses, ensure_ascii=False)
-                task_name = "ocr_analyze_contract" if ocr_used else "analyze_contract"
-                deep_prompt = (
-                    "You are a Lebanese tenant rights expert. The following clauses have been "
-                    "pre-screened as potentially risky in a rental lease agreement. "
-                    "For each clause provide a plain-language explanation of the risk and its severity.\n"
-                    "Return a JSON object with key 'risk_items', each item having:\n"
-                    "  'level': 'high', 'medium', or 'low'\n"
-                    "  'clause_text': the exact clause (as provided)\n"
-                    "  'explanation': clear explanation for a Lebanese student tenant\n\n"
-                    f"FLAGGED CLAUSES:\n{clauses_text}"
-                )
-                raw_analysis = call_llm(task_name, deep_prompt, max_tokens=2000)
+                batches = [
+                    flagged_clauses[i:i + DEEP_DIVE_BATCH_SIZE]
+                    for i in range(0, len(flagged_clauses), DEEP_DIVE_BATCH_SIZE)
+                ]
+                for batch in batches:
+                    clauses_text = json.dumps(batch, ensure_ascii=False)
+                    deep_prompt = (
+                        "You are a Lebanese tenant rights expert. The following clauses have been "
+                        "pre-screened as potentially risky in a rental lease agreement. "
+                        "For each clause provide a plain-language explanation of the risk and its severity.\n"
+                        "Return a JSON object with key 'risk_items', each item having:\n"
+                        "  'level': 'high', 'medium', or 'low'\n"
+                        "  'clause_text': the exact clause (as provided)\n"
+                        "  'explanation': clear explanation for a Lebanese student tenant\n\n"
+                        f"FLAGGED CLAUSES:\n{clauses_text}"
+                    )
+                    raw_batch = call_llm(task_name, deep_prompt, max_tokens=2000)
+                    batch_items = _extract_risk_items(raw_batch)
+                    if not batch_items:
+                        logger.warning(
+                            "analyze_contract_async | batch of %d clauses produced no parseable "
+                            "risk_items | contract_id=%s", len(batch), contract_id,
+                        )
+                    all_items.extend(batch_items)
             else:
                 # Fallback: no flags from screener OR screener failed — full single-pass
-                task_name = "ocr_analyze_contract" if ocr_used else "analyze_contract"
                 full_prompt = (
                     "Analyze this Lebanese rental lease contract and identify risk items for the tenant. "
                     "Return a JSON object with key 'risk_items', each with: "
@@ -151,29 +229,27 @@ def analyze_contract_async(contract_id: int) -> None:
                     "'explanation' (plain-language for a Lebanese student).\n\n"
                     f"CONTRACT:\n{text[:8000]}"
                 )
-                raw_analysis = call_llm(task_name, full_prompt, max_tokens=2000)
+                raw_analysis = call_llm(task_name, full_prompt, max_tokens=3000)
+                all_items = _extract_risk_items(raw_analysis)
 
-            # Parse the deep-analysis response (strip markdown code fences if present)
-            analysis = {"risk_items": []}
-            try:
-                cleaned = raw_analysis.strip()
-                if cleaned.startswith("```"):
-                    cleaned = cleaned.split("```", 2)[1]
-                    if cleaned.startswith("json"):
-                        cleaned = cleaned[4:]
-                    cleaned = cleaned.rsplit("```", 1)[0].strip()
-                parsed = json.loads(cleaned)
-                if isinstance(parsed, dict) and "risk_items" in parsed:
-                    items = parsed["risk_items"]
-                    order = {"high": 0, "medium": 1, "low": 2}
-                    items.sort(key=lambda x: order.get(x.get("level", "low"), 3))
-                    analysis = {"risk_items": items}
-            except Exception:
+            if all_items:
+                order = {"high": 0, "medium": 1, "low": 2}
+                all_items.sort(key=lambda x: order.get(x.get("level", "low"), 3))
+                analysis = {"risk_items": all_items}
+            else:
+                # Every batch failed to parse — this is rare (only when the LLM
+                # is unavailable/malformed for every single retry), so surface a
+                # clean, honest message instead of raw/truncated model output.
                 analysis = {
                     "risk_items": [{
                         "level": "medium",
-                        "clause_text": "See full analysis",
-                        "explanation": str(raw_analysis)[:500],
+                        "clause_text": "Full contract",
+                        "explanation": (
+                            "We couldn't generate a structured risk breakdown for this contract. "
+                            "This can happen with very unusual formatting or a temporary AI service "
+                            "issue. Please try uploading again, or read the contract yourself in the "
+                            "meantime — don't sign anything you don't fully understand."
+                        ),
                     }]
                 }
 

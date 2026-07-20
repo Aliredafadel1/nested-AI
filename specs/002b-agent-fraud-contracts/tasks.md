@@ -26,7 +26,7 @@
 **Purpose**: Update llm_router.py and celery_config.py to support Phase 2b features.
 
 - [ ] T002 Update `core/llm_router.py` — 4 targeted changes:
-  1. Fix `_call_free`: replace inline `SentenceTransformer("BAAI/bge-m3")` load with `from core.embeddings import embed_text; return embed_text(prompt)` — uses worker singleton, not per-call reload
+  1. Fix `_call_free`: replace inline `SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")` load with `from core.embeddings import embed_text; return embed_text(prompt)` — uses worker singleton, not per-call reload
   2. Add `stream_llm(task: str, prompt: str, **kwargs) -> Iterator[str]`: powerful tier only; uses `_anthropic_client().messages.stream(...)`, yields `event.delta.text` for each `text_delta`; raises `ValueError` if task tier ≠ powerful
   3. Add `transcribe_audio(file_bytes: bytes, filename: str) -> str`: calls `_openai_client().audio.transcriptions.create(model="whisper-1", file=(filename, file_bytes))` — not routed through `call_llm` (different input type) but lives here to satisfy SDK-isolation invariant
   4. Wrap `call_llm` with fallback chain: `_call_powerful` → on Exception try `_call_cheap` → on Exception check stale `llm:{task}:{prompt_hash}` Redis cache → on total failure return `"Service temporarily unavailable. Please try again shortly."` — log each fallback at WARN level

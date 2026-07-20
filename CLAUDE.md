@@ -52,7 +52,7 @@ All LLM calls go through `core/llm_router.py`. Never call OpenAI or Anthropic SD
 
 | Tier | Model | Assign to |
 |------|-------|-----------|
-| free | BGE-M3 (local) | embed_listing, embed_profile, embed_query, embed_rag_chunk |
+| free | MiniLM (local) | embed_listing, embed_profile, embed_query, embed_rag_chunk |
 | cheap | GPT-4o mini | parse_intent, summarize_*, classify_fraud_text, explain_compatibility |
 | powerful | Claude Sonnet | analyze_contract, agent_compare_explain, ocr_analyze_contract, validate_coherence |
 
@@ -69,7 +69,7 @@ Fallback chain: Claude Sonnet → GPT-4o → GPT-4o mini → stale Redis cache �
 
 ## Embeddings
 
-BGE-M3 loads **once** at Celery worker startup via the `worker_init` signal in `core/embeddings.py`. Never load it per-request. All vectors are 1024-dim.
+`paraphrase-multilingual-MiniLM-L12-v2` loads **once** at Celery worker startup via the `worker_process_init` signal in `core/embeddings.py`. Never load it per-request. All vectors are 384-dim.
 
 ## Redis Keys
 

@@ -136,7 +136,38 @@ export function ContractsPage() {
                   Analyze another
                 </button>
               </div>
-              {contract.analysis.risk_items.map((item, i) => <RiskCard key={i} item={item} />)}
+
+              <div className="flex gap-2 flex-wrap">
+                {(["high", "medium", "low"] as const).map((level) => {
+                  const count = contract.analysis!.risk_items.filter((i) => i.level === level).length
+                  if (count === 0) return null
+                  const pill = {
+                    high:   "bg-red-100 text-red-700",
+                    medium: "bg-yellow-100 text-yellow-700",
+                    low:    "bg-green-100 text-green-700",
+                  }[level]
+                  const label = { high: "High", medium: "Medium", low: "Low" }[level]
+                  return (
+                    <span key={level} className={`text-xs font-medium px-2.5 py-1 rounded-full ${pill}`}>
+                      {count} {label} Risk{count !== 1 ? "s" : ""}
+                    </span>
+                  )
+                })}
+              </div>
+
+              {(["high", "medium", "low"] as const).map((level) => {
+                const items = contract.analysis!.risk_items.filter((i) => i.level === level)
+                if (items.length === 0) return null
+                const heading = { high: "High Risk", medium: "Medium Risk", low: "Low Risk" }[level]
+                return (
+                  <div key={level} className="space-y-2">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide pt-2">
+                      {heading}
+                    </h3>
+                    {items.map((item, i) => <RiskCard key={`${level}-${i}`} item={item} />)}
+                  </div>
+                )
+              })}
             </>
           )}
         </div>

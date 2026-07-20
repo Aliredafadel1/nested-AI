@@ -6,11 +6,11 @@
 
 ```sql
 ALTER TABLE student_profiles
-    ADD COLUMN IF NOT EXISTS dim_sleep       vector(1024),
-    ADD COLUMN IF NOT EXISTS dim_study       vector(1024),
-    ADD COLUMN IF NOT EXISTS dim_cleanliness vector(1024),
-    ADD COLUMN IF NOT EXISTS dim_guests      vector(1024),
-    ADD COLUMN IF NOT EXISTS dim_budget      vector(1024);
+    ADD COLUMN IF NOT EXISTS dim_sleep       vector(384),
+    ADD COLUMN IF NOT EXISTS dim_study       vector(384),
+    ADD COLUMN IF NOT EXISTS dim_cleanliness vector(384),
+    ADD COLUMN IF NOT EXISTS dim_guests      vector(384),
+    ADD COLUMN IF NOT EXISTS dim_budget      vector(384);
 ```
 
 **Invariants**:
@@ -61,7 +61,7 @@ CREATE INDEX IF NOT EXISTS idx_sp_dim_budget
 
 **Lock**: `lock:embed:{listing_id}` (Redis SET NX, 30s TTL) prevents duplicate concurrent tasks.
 
-**Cache**: `embed:{sha256[:16]}` (Redis, 48h TTL) — identical text (e.g. unchanged listing re-submitted) returns cached vector without BGE-M3 inference.
+**Cache**: `embed:{sha256[:16]}` (Redis, 48h TTL) — identical text (e.g. unchanged listing re-submitted) returns cached vector without MiniLM inference.
 
 ---
 
@@ -71,7 +71,7 @@ Two new keys added to `RedisKeys` in `core/redis.py`:
 
 | Key Pattern | TTL | Purpose |
 |---|---|---|
-| `embed:{text_hash}` | 48h | Cache BGE-M3 output for a given input text |
+| `embed:{text_hash}` | 48h | Cache MiniLM output for a given input text |
 | `lock:embed:{listing_id}` | 30s | Distributed lock preventing duplicate embed tasks |
 
 ---

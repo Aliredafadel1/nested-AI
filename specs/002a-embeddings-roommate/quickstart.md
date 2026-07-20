@@ -5,7 +5,7 @@
 - Phase 1 complete and all tests passing
 - `docker compose up -d` with all services healthy
 - Phase 2a migration applied: `docker compose exec db psql -U nestai -d nestai -f /migrations/002a_add_profile_dim_vectors.sql`
-- `worker-low` service running (BGE-M3 downloads on first start — allow 2-3 min on first run)
+- `worker-low` service running (MiniLM downloads on first start — allow 2-3 min on first run)
 
 ---
 
@@ -134,15 +134,15 @@ curl -s http://localhost:8000/roommate/matches \
 docker compose exec api pytest tests/test_embeddings.py -v
 ```
 
-**Expected**: All tests pass — dimension check (1024), normalisation, batch efficiency, all 6 profile vector fields, opposite sleep score < 0.4.
+**Expected**: All tests pass — dimension check (384), normalisation, batch efficiency, all 6 profile vector fields, opposite sleep score < 0.4.
 
 ---
 
-## Verify BGE-M3 Loaded Once
+## Verify MiniLM Loaded Once
 
 ```bash
-docker compose logs worker-low | grep "BGE-M3"
-# Expected: exactly ONE line: "BGE-M3 model loaded"
+docker compose logs worker-low | grep "MiniLM"
+# Expected: exactly ONE line: "MiniLM model loaded"
 # No repeated loads across multiple embed tasks
 ```
 

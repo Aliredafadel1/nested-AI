@@ -139,7 +139,7 @@ Students receive push notifications (new matching listing, roommate request acce
 
 ## Assumptions
 
-- Phase 2a is complete — BGE-M3 embeddings exist for listings and student profiles.
+- Phase 2a is complete — MiniLM embeddings exist for listings and student profiles.
 - `get_roommate_matches` MCP tool calls Phase 2a's roommate service.
 - OSRM routing server is running and seeded with Lebanon OSM data.
 - OpenAI API key and Anthropic API key are set in `.env`.
